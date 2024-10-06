@@ -159,18 +159,24 @@ class BuildTagPanel(PanelWidget):
         self.root_layout.addWidget(self.color_widget)
         # self.parent().done.connect(self.update_tag)
 
-        # TODO - fill subtags
         self.subtags: set[int] = set()
+
+        if tag is not None:
+            for subtag in tag.subtag_ids:
+                self.subtags.add(subtag)
+
         self.set_tag(tag or Tag(name="New Tag"))
 
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
         self.subtags.add(tag_id)
+        self.lib.add_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def remove_subtag_callback(self, tag_id: int):
         logger.info("removing subtag", tag_id=tag_id)
         self.subtags.remove(tag_id)
+        self.lib.remove_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def set_subtags(self):
