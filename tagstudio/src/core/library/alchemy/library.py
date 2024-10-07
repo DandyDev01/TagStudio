@@ -806,8 +806,9 @@ class Library:
 
     def remove_subtag(self, base_id: int, remove_tag_id: int) -> bool:
         with Session(self.engine) as session:
-
-            remove = session.query(TagSubtag).filter(TagSubtag.parent_id == base_id, TagSubtag.child_id == remove_tag_id).one()
+            p_id = base_id
+            r_id = remove_tag_id
+            remove = session.query(TagSubtag).filter_by(parent_id=p_id, child_id=r_id).one()
             session.delete(remove)
             session.commit()
         
