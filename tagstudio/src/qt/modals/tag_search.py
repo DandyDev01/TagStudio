@@ -28,7 +28,7 @@ logger = structlog.get_logger(__name__)
 class TagSearchPanel(PanelWidget):
     tag_chosen = Signal(int)
 
-    def __init__(self, library: Library, exclude:list[int] | None = None):
+    def __init__(self, library: Library, exclude: list[int] | None = None):
         super().__init__()
         self.lib = library
         self.exclude = exclude

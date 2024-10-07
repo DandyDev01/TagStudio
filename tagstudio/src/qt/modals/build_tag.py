@@ -110,7 +110,7 @@ class BuildTagPanel(PanelWidget):
 
         self.subtags_add_button = QPushButton()
         self.subtags_add_button.setText("+")
-        
+
         exclude_ids: set[int] = None
         if tag is not None:
             exclude_ids = {tag.id}

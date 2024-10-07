@@ -811,7 +811,7 @@ class Library:
             remove = session.query(TagSubtag).filter_by(parent_id=p_id, child_id=r_id).one()
             session.delete(remove)
             session.commit()
-        
+
         return True
 
     def update_tag(self, tag: Tag, subtag_ids: list[int]) -> None:
