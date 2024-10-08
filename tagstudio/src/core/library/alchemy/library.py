@@ -832,31 +832,34 @@ class Library:
                 session.add(tag)
                 session.flush()
 
-                # load all tag's subtag to know which to remove
-                prev_subtags = session.scalars(
-                    select(TagSubtag).where(TagSubtag.parent_id == tag.id)
-                ).all()
-
-                for subtag in prev_subtags:
-                    if subtag.child_id not in subtag_ids:
-                        session.delete(subtag)
-                    else:
-                        # no change, remove from list
-                        subtag_ids.remove(subtag.child_id)
-
-                # create remaining items
-                for subtag_id in subtag_ids:
-                    # add new subtag
-                    subtag = TagSubtag(
-                        parent_id=tag.id,
-                        child_id=subtag_id,
-                    )
-                    session.add(subtag)
+                self.update_subtags(tag, subtag_ids, session)
 
                 session.commit()
             except IntegrityError:
                 session.rollback()
                 logger.exception("IntegrityError")
+
+    def update_subtags(self, tag, subtag_ids, session):
+        # load all tag's subtag to know which to remove
+        prev_subtags = session.scalars(
+                    select(TagSubtag).where(TagSubtag.parent_id == tag.id)
+                ).all()
+
+        for subtag in prev_subtags:
+            if subtag.child_id not in subtag_ids:
+                session.delete(subtag)
+            else:
+                        # no change, remove from list
+                subtag_ids.remove(subtag.child_id)
+
+                # create remaining items
+        for subtag_id in subtag_ids:
+                    # add new subtag
+            subtag = TagSubtag(
+                        parent_id=tag.id,
+                        child_id=subtag_id,
+                    )
+            session.add(subtag)
 
     def prefs(self, key: LibraryPrefs) -> Any:
         # load given item from Preferences table

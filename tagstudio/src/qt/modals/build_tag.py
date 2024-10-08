@@ -76,10 +76,26 @@ class BuildTagPanel(PanelWidget):
         self.aliases_title = QLabel()
         self.aliases_title.setText("Aliases")
         self.aliases_layout.addWidget(self.aliases_title)
-        self.aliases_field = QTextEdit()
-        self.aliases_field.setAcceptRichText(False)
-        self.aliases_field.setMinimumHeight(40)
-        self.aliases_layout.addWidget(self.aliases_field)
+
+        self.alias_scroll_contents = QWidget()
+       
+        self.alias_scroll_layout = QVBoxLayout(self.alias_scroll_contents)
+        self.alias_scroll_layout.setContentsMargins(6, 0, 6, 0)
+        self.alias_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        self.alias_scroll_area = QScrollArea()
+        self.alias_scroll_area.setWidgetResizable(True)
+        self.alias_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
+        self.alias_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.alias_scroll_area.setWidget(self.alias_scroll_contents)
+
+        self.aliases_layout.addWidget(self.alias_scroll_area)
+
+        self.alias_add_button = QPushButton()
+        self.alias_add_button.setText("+")
+
+        self.alias_add_button.clicked.connect(lambda: self.add_alias_callback())
+        self.aliases_layout.addWidget(self.alias_add_button)
 
         # Subtags ------------------------------------------------------------
         self.subtags_widget = QWidget()
@@ -93,20 +109,20 @@ class BuildTagPanel(PanelWidget):
         self.subtags_title.setText("Parent Tags")
         self.subtags_layout.addWidget(self.subtags_title)
 
-        self.scroll_contents = QWidget()
-        self.scroll_layout = QVBoxLayout(self.scroll_contents)
-        self.scroll_layout.setContentsMargins(6, 0, 6, 0)
-        self.scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.subtag_scroll_contents = QWidget()
+        self.subtag_scroll_layout = QVBoxLayout(self.subtag_scroll_contents)
+        self.subtag_scroll_layout.setContentsMargins(6, 0, 6, 0)
+        self.subtag_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        self.scroll_area = QScrollArea()
+        self.subtag_scroll_area = QScrollArea()
         # self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setFrameShadow(QFrame.Shadow.Plain)
-        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll_area.setWidget(self.scroll_contents)
+        self.subtag_scroll_area.setWidgetResizable(True)
+        self.subtag_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
+        self.subtag_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.subtag_scroll_area.setWidget(self.subtag_scroll_contents)
         # self.scroll_area.setMinimumHeight(60)
 
-        self.subtags_layout.addWidget(self.scroll_area)
+        self.subtags_layout.addWidget(self.subtag_scroll_area)
 
         self.subtags_add_button = QPushButton()
         self.subtags_add_button.setText("+")
@@ -164,40 +180,48 @@ class BuildTagPanel(PanelWidget):
         self.root_layout.addWidget(self.color_widget)
         # self.parent().done.connect(self.update_tag)
 
-        self.subtags: set[int] = set()
-
-        if tag is not None:
-            for subtag in tag.subtag_ids:
-                self.subtags.add(subtag)
-
+        self.subtag_ids: set[int] = set()
+        self.alias_ids: set[int] = set()
+        
         self.set_tag(tag or Tag(name="New Tag"))
 
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
-        self.subtags.add(tag_id)
+        self.subtag_ids.add(tag_id)
         self.lib.add_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def remove_subtag_callback(self, tag_id: int):
         logger.info("removing subtag", tag_id=tag_id)
-        self.subtags.remove(tag_id)
+        self.subtag_ids.remove(tag_id)
         self.lib.remove_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
+    def add_alias_callback(self):
+        logger.info("add_alias_callback")
+        new_field = QTextEdit()
+        new_field.setMaximumHeight(25)
+        new_field.setAcceptRichText(False)
+        new_field.setMinimumHeight(25)
+        self.alias_scroll_layout.addWidget(new_field)
+
     def set_subtags(self):
-        while self.scroll_layout.itemAt(0):
-            self.scroll_layout.takeAt(0).widget().deleteLater()
+        while self.subtag_scroll_layout.itemAt(0):
+            self.subtag_scroll_layout.takeAt(0).widget().deleteLater()
 
         c = QWidget()
         layout = QVBoxLayout(c)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(3)
-        for tag_id in self.subtags:
+        for tag_id in self.subtag_ids:
             tag = self.lib.get_tag(tag_id)
             tw = TagWidget(tag, has_edit=False, has_remove=True)
             tw.on_remove.connect(lambda t=tag_id: self.remove_subtag_callback(t))
             layout.addWidget(tw)
-        self.scroll_layout.addWidget(c)
+        self.subtag_scroll_layout.addWidget(c)
+
+    def set_aliases(self):
+        None
 
     def set_tag(self, tag: Tag):
         logger.info("setting tag", tag=tag)
@@ -206,7 +230,12 @@ class BuildTagPanel(PanelWidget):
         self.shorthand_field.setText(tag.shorthand or "")
         # TODO: Implement aliases
         # self.aliases_field.setText("\n".join(tag.aliases))
+
+        for subtag in tag.subtag_ids:
+            self.subtag_ids.add(subtag)
+        
         self.set_subtags()
+        
         # select item in self.color_field where the userData value matched tag.color
         for i in range(self.color_field.count()):
             if self.color_field.itemData(i) == tag.color:
