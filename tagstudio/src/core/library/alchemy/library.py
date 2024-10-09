@@ -865,6 +865,7 @@ class Library:
                 session.delete(alias)
             else:
                 alias_ids.remove(alias.id)
+                alias_names.remove(alias.name)
 
         for alias_name in alias_names:
             alias = TagAlias(alias_name, tag.id)
