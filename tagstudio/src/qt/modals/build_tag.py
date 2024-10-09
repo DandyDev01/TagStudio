@@ -226,10 +226,13 @@ class BuildTagPanel(PanelWidget):
     def add_aliases(self):
         for i in range(0, self.alias_scroll_layout.count()):
             widget = self.alias_scroll_layout.itemAt(i).widget()
-            if isinstance(widget, QLineEdit):
-                field: QLineEdit = cast(QLineEdit, widget)
-                if field.text() != "":
-                    self.alias_names.add(field.text())
+           
+            if not isinstance(widget, QLineEdit):
+                return
+            
+            field: QLineEdit = cast(QLineEdit, widget)
+            if field.text() != "":
+                self.alias_names.add(field.text())
 
     def set_aliases(self):
         for alias_id in self.alias_ids:
