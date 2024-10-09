@@ -787,6 +787,13 @@ class Library:
 
         return tag
 
+    def get_alias(self, tag_id: int, alias_id: int) -> TagAlias:
+        with Session(self.engine) as session:
+            alias_query = select(TagAlias).where(TagAlias.id == alias_id, TagAlias.tag_id == tag_id)
+            alias = session.scalar(alias_query.where(TagAlias.id == alias_id))
+
+        return alias
+
     def add_subtag(self, base_id: int, new_tag_id: int) -> bool:
         # open session and save as parent tag
         with Session(self.engine) as session:
@@ -813,6 +820,24 @@ class Library:
             session.commit()
 
         return True
+
+    def add_alias(self, tag_id: int, alias: str):
+        tag: Tag = self.get_tag(tag_id)
+        
+        with Session(self.engine) as session:
+            alias_tag = TagAlias(
+                tag=tag,
+                name=alias
+            )
+
+            try:
+                session.add(alias_tag)
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+                logger.exception("IntegrityError")
+                return False
 
     def update_tag(self, tag: Tag, subtag_ids: list[int]) -> None:
         """Edit a Tag in the Library."""

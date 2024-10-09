@@ -199,11 +199,14 @@ class BuildTagPanel(PanelWidget):
 
     def add_alias_callback(self):
         logger.info("add_alias_callback")
-        new_field = QTextEdit()
+        new_field = QLineEdit()
         new_field.setMaximumHeight(25)
-        new_field.setAcceptRichText(False)
         new_field.setMinimumHeight(25)
         self.alias_scroll_layout.addWidget(new_field)
+
+    def remove_alias_callback(self):
+        # TODO: implement this.
+        None
 
     def set_subtags(self):
         while self.subtag_scroll_layout.itemAt(0):
@@ -220,16 +223,33 @@ class BuildTagPanel(PanelWidget):
             layout.addWidget(tw)
         self.subtag_scroll_layout.addWidget(c)
 
+    def add_aliases(self):
+        for i in range(0, self.alias_scroll_layout.count()):
+            field: QLineEdit = self.alias_scroll_layout.itemAt(i).widget()
+            if field.text() != '':
+                self.lib.add_alias(self.tag.id, field.text())
+
     def set_aliases(self):
-        None
+        for alias_id in self.alias_ids:
+            new_field = QLineEdit()
+            new_field.setMaximumHeight(25)
+            new_field.setMinimumHeight(25)
+            new_field.setText(self.lib.get_alias(self.tag.id, alias_id).name)
+            self.alias_scroll_layout.addWidget(new_field)
+            
 
     def set_tag(self, tag: Tag):
+        self.tag = tag
+        
         logger.info("setting tag", tag=tag)
 
         self.name_field.setText(tag.name)
         self.shorthand_field.setText(tag.shorthand or "")
-        # TODO: Implement aliases
-        # self.aliases_field.setText("\n".join(tag.aliases))
+       
+        for alias_id in tag.alias_ids:
+            self.alias_ids.add(alias_id)
+
+        self.set_aliases()
 
         for subtag in tag.subtag_ids:
             self.subtag_ids.add(subtag)
@@ -242,12 +262,13 @@ class BuildTagPanel(PanelWidget):
                 self.color_field.setCurrentIndex(i)
                 break
 
-        self.tag = tag
 
     def build_tag(self) -> Tag:
         color = self.color_field.currentData() or TagColor.DEFAULT
 
         tag = self.tag
+
+        self.add_aliases()
 
         tag.name = self.name_field.text()
         tag.shorthand = self.shorthand_field.text()

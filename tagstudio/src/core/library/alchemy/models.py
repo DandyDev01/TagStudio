@@ -70,12 +70,12 @@ class Tag(Base):
         return [tag.id for tag in self.subtags]
 
     @property
-    def alias_ids(self) -> list[int]:
-        return [tag.id for tag in self.aliases]
-
-    @property
     def alias_strings(self) -> list[str]:
         return [alias.name for alias in self.aliases]
+
+    @property 
+    def alias_ids(self) -> list[int]:
+        return [tag.id for tag in self.aliases]
 
     def __init__(
         self,
