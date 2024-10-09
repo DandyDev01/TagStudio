@@ -103,7 +103,7 @@ def test_tag_widget_edit(qtbot, qt_driver, library, entry_full):
     # edit_action.triggered.emit()
 
     # Then
-    # NOTE: currently tag_box_widget.edit_modal is never set because its 
+    # NOTE: currently tag_box_widget.edit_modal is never set because its
     #       edit_tag method is never called
     # panel = tag_box_widget.edit_modal.widget
     # assert isinstance(panel, BuildTagPanel)
