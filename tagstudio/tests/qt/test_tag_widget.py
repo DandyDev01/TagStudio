@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 from src.core.library.alchemy.fields import _FieldID
-from src.qt.modals.build_tag import BuildTagPanel
 from src.qt.widgets.tag import TagWidget
 from src.qt.widgets.tag_box import TagBoxWidget
 
