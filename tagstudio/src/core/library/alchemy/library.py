@@ -683,7 +683,13 @@ class Library:
         )
         return True
 
-    def add_tag(self, tag: Tag, subtag_ids: set[int] | None = None, alias_names: set[str] | None = None, alias_ids: set[int] | None = None) -> Tag | None:
+    def add_tag(
+        self,
+        tag: Tag,
+        subtag_ids: set[int] | None = None,
+        alias_names: set[str] | None = None,
+        alias_ids: set[int] | None = None,
+    ) -> Tag | None:
         with Session(self.engine, expire_on_commit=False) as session:
             try:
                 session.add(tag)
@@ -846,12 +852,10 @@ class Library:
                 logger.exception("IntegrityError")
 
     def update_aliases(self, tag, alias_ids, alias_names, session):
-        prev_aliases = session.scalars(
-            select(TagAlias).where(TagAlias.tag_id == tag.id)
-        ).all()
+        prev_aliases = session.scalars(select(TagAlias).where(TagAlias.tag_id == tag.id)).all()
 
         for alias in prev_aliases:
-            if (alias.id not in alias_ids):
+            if alias.id not in alias_ids:
                 session.delete(alias)
             else:
                 alias_ids.remove(alias.id)
@@ -863,24 +867,22 @@ class Library:
 
     def update_subtags(self, tag, subtag_ids, session):
         # load all tag's subtag to know which to remove
-        prev_subtags = session.scalars(
-                    select(TagSubtag).where(TagSubtag.parent_id == tag.id)
-                ).all()
+        prev_subtags = session.scalars(select(TagSubtag).where(TagSubtag.parent_id == tag.id)).all()
 
         for subtag in prev_subtags:
             if subtag.child_id not in subtag_ids:
                 session.delete(subtag)
             else:
-                        # no change, remove from list
+                # no change, remove from list
                 subtag_ids.remove(subtag.child_id)
 
                 # create remaining items
         for subtag_id in subtag_ids:
-                    # add new subtag
+            # add new subtag
             subtag = TagSubtag(
-                        parent_id=tag.id,
-                        child_id=subtag_id,
-                    )
+                parent_id=tag.id,
+                child_id=subtag_id,
+            )
             session.add(subtag)
 
     def prefs(self, key: LibraryPrefs) -> Any:

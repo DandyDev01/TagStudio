@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import JSON, ForeignKey, Integer, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -37,6 +36,7 @@ class TagAlias(Base):
 
         super().__init__()
 
+
 class Tag(Base):
     __tablename__ = "tags"
     __table_args__ = {"sqlite_autoincrement": True}
@@ -72,7 +72,7 @@ class Tag(Base):
     def alias_strings(self) -> list[str]:
         return [alias.name for alias in self.aliases]
 
-    @property 
+    @property
     def alias_ids(self) -> list[int]:
         return [tag.id for tag in self.aliases]
 

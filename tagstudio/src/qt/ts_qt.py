@@ -252,7 +252,7 @@ class QtDriver(QObject):
 
         if os.name == "nt":
             appid = "cyanvoxel.tagstudio.9"
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)  # type: ignore
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
 
         if sys.platform != "darwin":
             icon = QIcon()
@@ -608,7 +608,9 @@ class QtDriver(QObject):
         panel: BuildTagPanel = self.modal.widget
         self.modal.saved.connect(
             lambda: (
-                self.lib.add_tag(panel.build_tag(), panel.subtag_ids, panel.alias_names, panel.alias_ids),
+                self.lib.add_tag(
+                    panel.build_tag(), panel.subtag_ids, panel.alias_names, panel.alias_ids
+                ),
                 self.modal.hide(),
             )
         )

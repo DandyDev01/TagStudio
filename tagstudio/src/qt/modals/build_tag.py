@@ -4,6 +4,7 @@
 
 
 from typing import cast
+
 import structlog
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -13,7 +14,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -79,11 +79,11 @@ class BuildTagPanel(PanelWidget):
         self.aliases_layout.addWidget(self.aliases_title)
 
         self.alias_scroll_contents = QWidget()
-       
+
         self.alias_scroll_layout = QVBoxLayout(self.alias_scroll_contents)
         self.alias_scroll_layout.setContentsMargins(6, 0, 6, 0)
         self.alias_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        
+
         self.alias_scroll_area = QScrollArea()
         self.alias_scroll_area.setWidgetResizable(True)
         self.alias_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
@@ -184,7 +184,7 @@ class BuildTagPanel(PanelWidget):
         self.subtag_ids: set[int] = set()
         self.alias_ids: set[int] = set()
         self.alias_names: set[str] = set()
-        
+
         self.set_tag(tag or Tag(name="New Tag"))
 
     def add_subtag_callback(self, tag_id: int):
@@ -206,7 +206,7 @@ class BuildTagPanel(PanelWidget):
 
     def remove_alias_callback(self):
         # TODO: implement this.
-        None
+        pass
 
     def set_subtags(self):
         while self.subtag_scroll_layout.itemAt(0):
@@ -228,7 +228,7 @@ class BuildTagPanel(PanelWidget):
             widget = self.alias_scroll_layout.itemAt(i).widget()
             if isinstance(widget, QLineEdit):
                 field: QLineEdit = cast(QLineEdit, widget)
-                if field.text() != '':
+                if field.text() != "":
                     self.alias_names.add(field.text())
 
     def set_aliases(self):
@@ -238,16 +238,15 @@ class BuildTagPanel(PanelWidget):
             new_field.setMinimumHeight(25)
             new_field.setText(self.lib.get_alias(self.tag.id, alias_id).name)
             self.alias_scroll_layout.addWidget(new_field)
-            
 
     def set_tag(self, tag: Tag):
         self.tag = tag
-        
+
         logger.info("setting tag", tag=tag)
 
         self.name_field.setText(tag.name)
         self.shorthand_field.setText(tag.shorthand or "")
-       
+
         for alias_id in tag.alias_ids:
             self.alias_ids.add(alias_id)
 
@@ -255,15 +254,14 @@ class BuildTagPanel(PanelWidget):
 
         for subtag in tag.subtag_ids:
             self.subtag_ids.add(subtag)
-        
+
         self.set_subtags()
-        
+
         # select item in self.color_field where the userData value matched tag.color
         for i in range(self.color_field.count()):
             if self.color_field.itemData(i) == tag.color:
                 self.color_field.setCurrentIndex(i)
                 break
-
 
     def build_tag(self) -> Tag:
         color = self.color_field.currentData() or TagColor.DEFAULT
