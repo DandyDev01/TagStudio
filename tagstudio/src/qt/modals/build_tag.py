@@ -22,7 +22,7 @@ from src.core.library.alchemy.enums import TagColor
 from src.core.palette import ColorType, get_tag_color
 from src.qt.modals.tag_search import TagSearchPanel
 from src.qt.widgets.panel import PanelModal, PanelWidget
-from src.qt.widgets.tag import TagWidget
+from src.qt.widgets.tag import TagAliasWidget, TagWidget
 
 logger = structlog.get_logger(__name__)
 
@@ -199,13 +199,15 @@ class BuildTagPanel(PanelWidget):
 
     def add_alias_callback(self):
         logger.info("add_alias_callback")
-        new_field = QLineEdit()
+        # TODO: use a TagAliasWidget instead of the QLineEdit, it will have a QLineEdit
+        new_field = TagAliasWidget(lambda: self.remove_alias_callback())
         new_field.setMaximumHeight(25)
         new_field.setMinimumHeight(25)
         self.alias_scroll_layout.addWidget(new_field)
 
     def remove_alias_callback(self):
         # TODO: implement this.
+        logger.info("remove_alias_callback")
         pass
 
     def set_subtags(self):
@@ -227,19 +229,19 @@ class BuildTagPanel(PanelWidget):
         for i in range(0, self.alias_scroll_layout.count()):
             widget = self.alias_scroll_layout.itemAt(i).widget()
            
-            if not isinstance(widget, QLineEdit):
+            if not isinstance(widget, TagAliasWidget):
                 return
             
-            field: QLineEdit = cast(QLineEdit, widget)
-            if field.text() != "":
-                self.alias_names.add(field.text())
+            field: TagAliasWidget = cast(TagAliasWidget, widget)
+            if field.text_field.text() != "":
+                self.alias_names.add(field.text_field.text())
 
     def set_aliases(self):
         for alias_id in self.alias_ids:
-            new_field = QLineEdit()
+            new_field = TagAliasWidget()
             new_field.setMaximumHeight(25)
             new_field.setMinimumHeight(25)
-            new_field.setText(self.lib.get_alias(self.tag.id, alias_id).name)
+            new_field.text_field.setText(self.lib.get_alias(self.tag.id, alias_id).name)
             self.alias_scroll_layout.addWidget(new_field)
 
     def set_tag(self, tag: Tag):
