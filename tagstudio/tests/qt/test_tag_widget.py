@@ -104,7 +104,7 @@ def test_tag_widget_edit(qtbot, qt_driver, library, entry_full):
     edit_action.triggered.emit()
 
     # Then
-    panel = tag_box_widget.add_modal.widget
+    panel = tag_box_widget.edit_modal.widget
     assert isinstance(panel, BuildTagPanel)
     assert panel.tag.name == tag.name
     assert panel.name_field.text() == tag.name
