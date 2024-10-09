@@ -199,16 +199,30 @@ class BuildTagPanel(PanelWidget):
 
     def add_alias_callback(self):
         logger.info("add_alias_callback")
-        # TODO: use a TagAliasWidget instead of the QLineEdit, it will have a QLineEdit
-        new_field = TagAliasWidget(lambda: self.remove_alias_callback())
+        new_field = TagAliasWidget(on_remove_callback=lambda a="": self.remove_alias_callback(a))
         new_field.setMaximumHeight(25)
         new_field.setMinimumHeight(25)
         self.alias_scroll_layout.addWidget(new_field)
 
-    def remove_alias_callback(self):
-        # TODO: implement this.
+    def remove_alias_callback(self, alias_name: str, alias_id: int | None = None):
         logger.info("remove_alias_callback")
-        pass
+
+        remove: list[QWidget] = list()
+
+        for i in range(0, self.alias_scroll_layout.count()):
+            widget = self.alias_scroll_layout.itemAt(i).widget()
+
+            if not isinstance(widget, TagAliasWidget):
+                return
+
+            field: TagAliasWidget = cast(TagAliasWidget, widget)
+            if field.text_field.text() == alias_name:
+                self.alias_ids.remove(alias_id)
+                self.alias_names.remove(alias_name)
+                remove.append(widget)
+
+        for item in remove:
+            self.alias_scroll_layout.removeWidget(item)
 
     def set_subtags(self):
         while self.subtag_scroll_layout.itemAt(0):
@@ -228,21 +242,24 @@ class BuildTagPanel(PanelWidget):
     def add_aliases(self):
         for i in range(0, self.alias_scroll_layout.count()):
             widget = self.alias_scroll_layout.itemAt(i).widget()
-           
+
             if not isinstance(widget, TagAliasWidget):
                 return
-            
+
             field: TagAliasWidget = cast(TagAliasWidget, widget)
             if field.text_field.text() != "":
                 self.alias_names.add(field.text_field.text())
 
     def set_aliases(self):
         for alias_id in self.alias_ids:
-            new_field = TagAliasWidget()
+            alias_name = self.lib.get_alias(self.tag.id, alias_id).name
+            new_field = TagAliasWidget(
+                alias_name, lambda a=alias_name, id=alias_id: self.remove_alias_callback(a, id)
+            )
             new_field.setMaximumHeight(25)
             new_field.setMinimumHeight(25)
-            new_field.text_field.setText(self.lib.get_alias(self.tag.id, alias_id).name)
             self.alias_scroll_layout.addWidget(new_field)
+            self.alias_names.add(alias_name)
 
     def set_tag(self, tag: Tag):
         self.tag = tag

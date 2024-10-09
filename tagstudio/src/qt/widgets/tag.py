@@ -24,10 +24,11 @@ from src.core.palette import ColorType, get_tag_color
 
 class TagAliasWidget(QWidget):
     on_remove = Signal()
-    
+
     def __init__(
         self,
-        on_remove_callback: FunctionType = None,
+        alias: str | None = None,
+        on_remove_callback = None,
     ) -> None:
         super().__init__()
 
@@ -41,13 +42,12 @@ class TagAliasWidget(QWidget):
         self.inner_layout.setObjectName("innerLayout")
         self.inner_layout.setContentsMargins(2, 2, 2, 2)
 
-        remove_action = QAction("Remove", self)
-        remove_action.triggered.connect(on_remove_callback)
-        remove_action.triggered.connect(self.on_remove.emit)
+        self.on_remove.connect(on_remove_callback)
 
         self.text_field = QLineEdit()
-        self.text_field.addAction(remove_action)
         self.base_layout.addWidget(self.text_field)
+        if alias is not None:
+            self.text_field.setText(alias)
 
         self.remove_button = QPushButton(self)
         self.remove_button.setFlat(True)
@@ -78,6 +78,7 @@ class TagAliasWidget(QWidget):
         self.remove_button.setHidden(True)
         self.update()
         return super().leaveEvent(event)
+
 
 class TagWidget(QWidget):
     edit_icon_128: Image.Image = Image.open(
