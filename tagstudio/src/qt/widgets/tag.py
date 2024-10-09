@@ -28,7 +28,7 @@ class TagAliasWidget(QWidget):
     def __init__(
         self,
         alias: str | None = None,
-        on_remove_callback = None,
+        on_remove_callback=None,
     ) -> None:
         super().__init__()
 
