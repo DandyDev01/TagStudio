@@ -683,18 +683,27 @@ class Library:
         )
         return True
 
-    def add_tag(self, tag: Tag, subtag_ids: list[int] | None = None) -> Tag | None:
+    def add_tag(self, tag: Tag, subtag_ids: list[int] | None = None, alias_names: list[str] | None = None, alias_ids: list[int] | None = None) -> Tag | None:
         with Session(self.engine, expire_on_commit=False) as session:
             try:
                 session.add(tag)
                 session.flush()
 
-                for subtag_id in subtag_ids or []:
-                    subtag = TagSubtag(
-                        parent_id=tag.id,
-                        child_id=subtag_id,
-                    )
-                    session.add(subtag)
+                # for subtag_id in subtag_ids or []:
+                #     subtag = TagSubtag(
+                #         parent_id=tag.id,
+                #         child_id=subtag_id,
+                #     )
+                #     session.add(subtag)
+                self.update_subtags(tag, subtag_ids, session)
+
+                # for alias in alias_names or []:
+                #     alias_tag = TagAlias(
+                #         alias,
+                #         tag.id
+                #     )
+                #     session.add(alias_tag)
+                self.update_aliases(tag, alias_ids, alias_names, session)
 
                 session.commit()
 
@@ -797,13 +806,13 @@ class Library:
     def add_subtag(self, base_id: int, new_tag_id: int) -> bool:
         # open session and save as parent tag
         with Session(self.engine) as session:
-            tag = TagSubtag(
+            subtag = TagSubtag(
                 parent_id=base_id,
                 child_id=new_tag_id,
             )
 
             try:
-                session.add(tag)
+                session.add(subtag)
                 session.commit()
                 return True
             except IntegrityError:
@@ -820,24 +829,6 @@ class Library:
             session.commit()
 
         return True
-
-    def add_alias(self, tag_id: int, alias: str):
-        tag: Tag = self.get_tag(tag_id)
-        
-        with Session(self.engine) as session:
-            alias_tag = TagAlias(
-                tag=tag,
-                name=alias
-            )
-
-            try:
-                session.add(alias_tag)
-                session.commit()
-                return True
-            except IntegrityError:
-                session.rollback()
-                logger.exception("IntegrityError")
-                return False
 
     def update_tag(self, tag: Tag, subtag_ids: list[int]) -> None:
         """Edit a Tag in the Library."""
@@ -863,6 +854,21 @@ class Library:
             except IntegrityError:
                 session.rollback()
                 logger.exception("IntegrityError")
+
+    def update_aliases(self, tag, alias_ids, alias_names: list[str], session):
+        prev_aliases = session.scalars(
+            select(TagAlias).where(TagAlias.tag_id == tag.id)
+        ).all()
+
+        for alias in prev_aliases:
+            if (alias.id not in alias_ids):
+                session.delete(alias)
+            else:
+                alias_ids.remove(alias.id)
+
+        for alias_name in alias_names:
+            alias = TagAlias(alias_name, tag.id)
+            session.add(alias)
 
     def update_subtags(self, tag, subtag_ids, session):
         # load all tag's subtag to know which to remove

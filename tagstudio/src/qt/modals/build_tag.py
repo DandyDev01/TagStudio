@@ -182,13 +182,13 @@ class BuildTagPanel(PanelWidget):
 
         self.subtag_ids: set[int] = set()
         self.alias_ids: set[int] = set()
+        self.alias_names: set[str] = set()
         
         self.set_tag(tag or Tag(name="New Tag"))
 
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
         self.subtag_ids.add(tag_id)
-        self.lib.add_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def remove_subtag_callback(self, tag_id: int):
@@ -227,7 +227,7 @@ class BuildTagPanel(PanelWidget):
         for i in range(0, self.alias_scroll_layout.count()):
             field: QLineEdit = self.alias_scroll_layout.itemAt(i).widget()
             if field.text() != '':
-                self.lib.add_alias(self.tag.id, field.text())
+                self.alias_names.add(field.text())
 
     def set_aliases(self):
         for alias_id in self.alias_ids:

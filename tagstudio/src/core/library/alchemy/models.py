@@ -29,14 +29,13 @@ class TagAlias(Base):
     tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id"))
     tag: Mapped["Tag"] = relationship(back_populates="aliases")
 
-    def __init__(self, name: str, tag: Optional["Tag"] = None):
+    def __init__(self, name: str, tag_id: int | None = None):
         self.name = name
 
-        if tag:
-            self.tag = tag
+        if tag_id is not None:
+            self.tag_id = tag_id
 
         super().__init__()
-
 
 class Tag(Base):
     __tablename__ = "tags"
