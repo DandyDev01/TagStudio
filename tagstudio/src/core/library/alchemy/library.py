@@ -695,7 +695,8 @@ class Library:
                 #         child_id=subtag_id,
                 #     )
                 #     session.add(subtag)
-                self.update_subtags(tag, subtag_ids, session)
+                if subtag_ids is not None:
+                    self.update_subtags(tag, subtag_ids, session)
 
                 # for alias in alias_names or []:
                 #     alias_tag = TagAlias(
@@ -703,7 +704,9 @@ class Library:
                 #         tag.id
                 #     )
                 #     session.add(alias_tag)
-                self.update_aliases(tag, alias_ids, alias_names, session)
+
+                if alias_ids is not None and alias_names is not None:
+                    self.update_aliases(tag, alias_ids, alias_names, session)
 
                 session.commit()
 
