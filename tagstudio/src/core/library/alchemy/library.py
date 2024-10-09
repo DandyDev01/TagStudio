@@ -689,21 +689,8 @@ class Library:
                 session.add(tag)
                 session.flush()
 
-                # for subtag_id in subtag_ids or []:
-                #     subtag = TagSubtag(
-                #         parent_id=tag.id,
-                #         child_id=subtag_id,
-                #     )
-                #     session.add(subtag)
                 if subtag_ids is not None:
                     self.update_subtags(tag, subtag_ids, session)
-
-                # for alias in alias_names or []:
-                #     alias_tag = TagAlias(
-                #         alias,
-                #         tag.id
-                #     )
-                #     session.add(alias_tag)
 
                 if alias_ids is not None and alias_names is not None:
                     self.update_aliases(tag, alias_ids, alias_names, session)
