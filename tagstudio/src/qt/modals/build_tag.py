@@ -3,6 +3,7 @@
 # Created for TagStudio: https://github.com/CyanVoxel/TagStudio
 
 
+from typing import cast
 import structlog
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -127,9 +128,9 @@ class BuildTagPanel(PanelWidget):
         self.subtags_add_button = QPushButton()
         self.subtags_add_button.setText("+")
 
-        exclude_ids: set[int] = None
+        exclude_ids: list[int] = list()
         if tag is not None:
-            exclude_ids = {tag.id}
+            exclude_ids.append(tag.id)
 
         tsp = TagSearchPanel(self.lib, exclude_ids)
         tsp.tag_chosen.connect(lambda x: self.add_subtag_callback(x))
@@ -224,9 +225,11 @@ class BuildTagPanel(PanelWidget):
 
     def add_aliases(self):
         for i in range(0, self.alias_scroll_layout.count()):
-            field: QLineEdit = self.alias_scroll_layout.itemAt(i).widget()
-            if field.text() != '':
-                self.alias_names.add(field.text())
+            widget = self.alias_scroll_layout.itemAt(i).widget()
+            if isinstance(widget, QLineEdit):
+                field: QLineEdit = cast(QLineEdit, widget)
+                if field.text() != '':
+                    self.alias_names.add(field.text())
 
     def set_aliases(self):
         for alias_id in self.alias_ids:

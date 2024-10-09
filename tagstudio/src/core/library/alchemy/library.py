@@ -683,7 +683,7 @@ class Library:
         )
         return True
 
-    def add_tag(self, tag: Tag, subtag_ids: list[int] | None = None, alias_names: list[str] | None = None, alias_ids: list[int] | None = None) -> Tag | None:
+    def add_tag(self, tag: Tag, subtag_ids: set[int] | None = None, alias_names: set[str] | None = None, alias_ids: set[int] | None = None) -> Tag | None:
         with Session(self.engine, expire_on_commit=False) as session:
             try:
                 session.add(tag)
@@ -845,7 +845,7 @@ class Library:
                 session.rollback()
                 logger.exception("IntegrityError")
 
-    def update_aliases(self, tag, alias_ids, alias_names: list[str], session):
+    def update_aliases(self, tag, alias_ids, alias_names, session):
         prev_aliases = session.scalars(
             select(TagAlias).where(TagAlias.tag_id == tag.id)
         ).all()
