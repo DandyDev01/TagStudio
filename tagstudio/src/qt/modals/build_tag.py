@@ -194,7 +194,6 @@ class BuildTagPanel(PanelWidget):
     def remove_subtag_callback(self, tag_id: int):
         logger.info("removing subtag", tag_id=tag_id)
         self.subtag_ids.remove(tag_id)
-        self.lib.remove_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def add_alias_callback(self):
