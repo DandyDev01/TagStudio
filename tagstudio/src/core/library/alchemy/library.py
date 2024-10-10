@@ -843,7 +843,7 @@ class Library:
         prev_aliases = session.scalars(select(TagAlias).where(TagAlias.tag_id == tag.id)).all()
 
         for alias in prev_aliases:
-            if alias.id not in alias_ids:
+            if alias.id not in alias_ids or alias.name not in alias_names:
                 session.delete(alias)
             else:
                 alias_ids.remove(alias.id)

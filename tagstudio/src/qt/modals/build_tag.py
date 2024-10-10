@@ -240,6 +240,7 @@ class BuildTagPanel(PanelWidget):
         self.subtag_scroll_layout.addWidget(c)
 
     def add_aliases(self):
+        fields: set[TagAliasWidget] = set()
         for i in range(0, self.alias_scroll_layout.count()):
             widget = self.alias_scroll_layout.itemAt(i).widget()
 
@@ -247,6 +248,18 @@ class BuildTagPanel(PanelWidget):
                 return
 
             field: TagAliasWidget = cast(TagAliasWidget, widget)
+            fields.add(field)
+
+        remove: set[str] = set()
+        for alias_name in self.alias_names:
+            if alias_name not in [a for a in fields]:
+               remove.add(alias_name)
+
+        for name in remove:
+            self.alias_names.remove(name)
+
+        for field in fields:
+            # add new aliases
             if field.text_field.text() != "":
                 self.alias_names.add(field.text_field.text())
 
