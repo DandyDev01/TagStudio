@@ -61,7 +61,7 @@ def test_library_update_alias(library, generate_tag):
     tag = library.get_tag(tag.id)
 
     assert len(tag.alias_ids) == 1
-    assert library.get_alias(tag.id, alias_ids[0]).name == "alias_update"
+    assert library.get_alias(tag.id, tag.alias_ids[0]).name == "alias_update"
 
 
 def test_library_bootstrap():
