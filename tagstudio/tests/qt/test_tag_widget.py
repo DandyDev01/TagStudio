@@ -100,15 +100,7 @@ def test_tag_widget_edit(qtbot, qt_driver, library, entry_full):
     tag_widget = tag_box_widget.base_layout.itemAt(0).widget()
     assert isinstance(tag_widget, TagWidget)
 
-    # [issue] for test to pass it requires that tag_box_widget.edit_modal get set.
-    #        It is meant to be set in tagBoxWidget.edit_tag which is called
-    #        whentagBoxWidget.set_tags is celled which is set in the __init__
-
     # When
-    # actions = tag_widget.bg_button.actions()
-    # edit_action = [a for a in actions if a.text() == "Edit"][0]
-    # edit_action.triggered.emit()
-
     tag_box_widget.edit_tag(tag)
 
     # Then
