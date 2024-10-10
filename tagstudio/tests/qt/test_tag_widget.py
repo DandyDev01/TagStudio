@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from src.core.library.alchemy.fields import _FieldID
+from src.qt.modals.build_tag import BuildTagPanel
 from src.qt.widgets.tag import TagWidget
 from src.qt.widgets.tag_box import TagBoxWidget
 
@@ -83,7 +84,9 @@ def test_tag_widget_remove(qtbot, qt_driver, library, entry_full):
 
 def test_tag_widget_edit(qtbot, qt_driver, library, entry_full):
     # Given
-    tag = list(entry_full.tags)[0]
+    entry = next(library.get_entries(with_joins=True))
+    library.add_tag(list(entry.tags)[0])
+    tag = library.get_tag(list(entry.tags)[0].id)
     assert tag
 
     assert entry_full.tag_box_fields
@@ -98,14 +101,10 @@ def test_tag_widget_edit(qtbot, qt_driver, library, entry_full):
     assert isinstance(tag_widget, TagWidget)
 
     # When
-    # actions = tag_widget.bg_button.actions()
-    # edit_action = [a for a in actions if a.text() == "Edit"][0]
-    # edit_action.triggered.emit()
+    tag_box_widget.edit_tag(tag)
 
     # Then
-    # NOTE: currently tag_box_widget.edit_modal is never set because its
-    #       edit_tag method is never called
-    # panel = tag_box_widget.edit_modal.widget
-    # assert isinstance(panel, BuildTagPanel)
-    # assert panel.tag.name == tag.name
-    # assert panel.name_field.text() == tag.name
+    panel = tag_box_widget.edit_modal.widget
+    assert isinstance(panel, BuildTagPanel)
+    assert panel.tag.name == tag.name
+    assert panel.name_field.text() == tag.name
