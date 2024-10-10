@@ -783,12 +783,16 @@ class Library:
 
     def get_tag(self, tag_id: int) -> Tag:
         with Session(self.engine) as session:
-            tags_query = select(Tag).options(selectinload(Tag.subtags))
+            tags_query = select(Tag).options(selectinload(Tag.subtags), 
+                                             selectinload(Tag.aliases))
             tag = session.scalar(tags_query.where(Tag.id == tag_id))
 
             session.expunge(tag)
             for subtag in tag.subtags:
                 session.expunge(subtag)
+            
+            for alias in tag.aliases:
+                session.expunge(alias)
 
         return tag
 
