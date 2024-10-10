@@ -826,30 +826,15 @@ class Library:
 
         return True
 
-    def update_tag(self, tag: Tag, subtag_ids: list[int]) -> None:
+    def update_tag(
+        self,
+        tag: Tag,
+        subtag_ids: set[int] | None = None,
+        alias_names: set[str] | None = None,
+        alias_ids: set[int] | None = None,
+    ) -> None:
         """Edit a Tag in the Library."""
-        # TODO - maybe merge this with add_tag?
-
-        if tag.shorthand:
-            tag.shorthand = slugify(tag.shorthand)
-
-        if tag.aliases:
-            # TODO
-            ...
-
-        # save the tag
-        with Session(self.engine) as session:
-            try:
-                # update the existing tag
-                session.add(tag)
-                session.flush()
-
-                self.update_subtags(tag, subtag_ids, session)
-
-                session.commit()
-            except IntegrityError:
-                session.rollback()
-                logger.exception("IntegrityError")
+        self.add_tag(tag, subtag_ids, alias_names, alias_ids)
 
     def update_aliases(self, tag, alias_ids, alias_names, session):
         prev_aliases = session.scalars(select(TagAlias).where(TagAlias.tag_id == tag.id)).all()
