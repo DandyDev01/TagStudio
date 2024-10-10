@@ -253,7 +253,7 @@ class BuildTagPanel(PanelWidget):
         remove: set[str] = set()
         for alias_name in self.alias_names:
             if alias_name not in [a for a in fields]:
-               remove.add(alias_name)
+                remove.add(alias_name)
 
         for name in remove:
             self.alias_names.remove(name)

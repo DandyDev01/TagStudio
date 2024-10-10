@@ -19,12 +19,13 @@ def test_library_add_alias(library, generate_tag):
     alias_names.add("test_alias")
     library.update_tag(tag, subtag_ids, alias_names, alias_ids)
 
-    # Note: ask if it is expected behaviour that you need to re-request 
+    # Note: ask if it is expected behaviour that you need to re-request
     #       for the tag. Or if the tag in memory should be updated
     alias_ids = library.get_tag(tag.id).alias_ids
 
     assert len(alias_ids) == 1
-    
+
+
 def test_library_get_alias(library, generate_tag):
     tag = library.add_tag(generate_tag("xxx", id=123))
     assert tag
@@ -39,6 +40,7 @@ def test_library_get_alias(library, generate_tag):
 
     assert library.get_alias(tag.id, alias_ids[0]).name == "test_alias"
 
+
 def test_library_update_alias(library, generate_tag):
     tag: Tag = library.add_tag(generate_tag("xxx", id=123))
     assert tag
@@ -52,7 +54,7 @@ def test_library_update_alias(library, generate_tag):
     tag = library.get_tag(tag.id)
     alias_ids = tag.alias_ids
 
-    assert library.get_alias(tag.id, alias_ids[0]).name == 'test_alias'
+    assert library.get_alias(tag.id, alias_ids[0]).name == "test_alias"
 
     alias_names.remove("test_alias")
     alias_names.add("alias_update")
