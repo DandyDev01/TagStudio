@@ -250,13 +250,9 @@ class BuildTagPanel(PanelWidget):
             field: TagAliasWidget = cast(TagAliasWidget, widget)
             fields.add(field)
 
-        remove: set[str] = set()
-        for alias_name in self.alias_names:
-            if alias_name not in [a for a in fields]:
-                remove.add(alias_name)
+        remove: set[str] = self.alias_names - set([a for a in fields])
 
-        for name in remove:
-            self.alias_names.remove(name)
+        self.alias_names = self.alias_names - remove
 
         for field in fields:
             # add new aliases
