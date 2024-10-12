@@ -27,10 +27,13 @@ class TagAliasWidget(QWidget):
 
     def __init__(
         self,
+        id: int | None = 0,
         alias: str | None = None,
         on_remove_callback=None,
     ) -> None:
         super().__init__()
+
+        self.id = id
 
         # if on_click_callback:
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -46,8 +49,11 @@ class TagAliasWidget(QWidget):
 
         self.text_field = QLineEdit()
         self.base_layout.addWidget(self.text_field)
+
         if alias is not None:
             self.text_field.setText(alias)
+        else:
+            self.text_field.setText("")
 
         self.remove_button = QPushButton(self)
         self.remove_button.setFlat(True)
