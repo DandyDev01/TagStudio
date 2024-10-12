@@ -805,7 +805,7 @@ class Library:
     def add_subtag(self, base_id: int, new_tag_id: int) -> bool:
         if base_id == new_tag_id:
             return False
-        
+
         # open session and save as parent tag
         with Session(self.engine) as session:
             subtag = TagSubtag(
