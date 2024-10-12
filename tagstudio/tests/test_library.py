@@ -108,6 +108,7 @@ def test_create_tag(library, generate_tag):
     tag_inc = library.add_tag(generate_tag("yyy"))
     assert tag_inc.id > 1000
 
+
 def test_tag_subtag_itself(library, generate_tag):
     # tag already exists
     assert not library.add_tag(generate_tag("foo"))
