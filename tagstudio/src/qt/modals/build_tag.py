@@ -3,6 +3,8 @@
 # Created for TagStudio: https://github.com/CyanVoxel/TagStudio
 
 
+from typing import cast
+
 import structlog
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -12,7 +14,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -21,7 +22,7 @@ from src.core.library.alchemy.enums import TagColor
 from src.core.palette import ColorType, get_tag_color
 from src.qt.modals.tag_search import TagSearchPanel
 from src.qt.widgets.panel import PanelModal, PanelWidget
-from src.qt.widgets.tag import TagWidget
+from src.qt.widgets.tag import TagAliasWidget, TagWidget
 
 logger = structlog.get_logger(__name__)
 
@@ -78,11 +79,11 @@ class BuildTagPanel(PanelWidget):
         self.aliases_layout.addWidget(self.aliases_title)
 
         self.alias_scroll_contents = QWidget()
-       
+
         self.alias_scroll_layout = QVBoxLayout(self.alias_scroll_contents)
         self.alias_scroll_layout.setContentsMargins(6, 0, 6, 0)
         self.alias_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        
+
         self.alias_scroll_area = QScrollArea()
         self.alias_scroll_area.setWidgetResizable(True)
         self.alias_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
@@ -127,9 +128,9 @@ class BuildTagPanel(PanelWidget):
         self.subtags_add_button = QPushButton()
         self.subtags_add_button.setText("+")
 
-        exclude_ids: set[int] = None
+        exclude_ids: list[int] = list()
         if tag is not None:
-            exclude_ids = {tag.id}
+            exclude_ids.append(tag.id)
 
         tsp = TagSearchPanel(self.lib, exclude_ids)
         tsp.tag_chosen.connect(lambda x: self.add_subtag_callback(x))
@@ -182,31 +183,63 @@ class BuildTagPanel(PanelWidget):
 
         self.subtag_ids: set[int] = set()
         self.alias_ids: set[int] = set()
-        
+        self.alias_names: set[str] = set()
+        self.new_alias_names: dict = dict()
+
         self.set_tag(tag or Tag(name="New Tag"))
 
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
         self.subtag_ids.add(tag_id)
-        self.lib.add_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def remove_subtag_callback(self, tag_id: int):
         logger.info("removing subtag", tag_id=tag_id)
         self.subtag_ids.remove(tag_id)
-        self.lib.remove_subtag(self.tag.id, tag_id)
         self.set_subtags()
 
     def add_alias_callback(self):
         logger.info("add_alias_callback")
-        new_field = QLineEdit()
+        # bug passing in the text for a here means when the text changes
+        # the remove callback uses what a whas initialy assigned
+        new_field = TagAliasWidget()
+        id = new_field.__hash__()
+        new_field.id = id
+        new_field.on_remove.connect(lambda a="": self.remove_alias_callback(a, id))
+        self.alias_ids.add(id)
+        self.new_alias_names[id] = ""
         new_field.setMaximumHeight(25)
         new_field.setMinimumHeight(25)
         self.alias_scroll_layout.addWidget(new_field)
 
-    def remove_alias_callback(self):
-        # TODO: implement this.
-        None
+    def remove_alias_callback(self, alias_name: str, alias_id: int | None = None):
+        logger.info("remove_alias_callback")
+        self.alias_ids.remove(alias_id)
+        self.set_aliases()
+        # remove: list[QWidget] = list()
+
+        # for i in range(0, self.alias_scroll_layout.count()):
+        #     widget = self.alias_scroll_layout.itemAt(i).widget()
+
+        #     if not isinstance(widget, TagAliasWidget):
+        #         return
+
+        #     field: TagAliasWidget = cast(TagAliasWidget, widget)
+        #     text_field_text = field.text_field.text()
+
+        #     if text_field_text == alias_name:
+        #         remove.append(widget)
+
+        #     if field.text_field.text() == alias_name and alias_name in self.alias_names:
+        #         self.alias_names.remove(alias_name)
+
+        #     if alias_id in self.alias_ids:
+        #         self.alias_ids.remove(alias_id)
+
+        # #bug when there is only one item left in the aliaslayout and remove
+        # #is called, the ui does not update again until an item is added
+        # for item in remove:
+        #     self.alias_scroll_layout.removeWidget(item)
 
     def set_subtags(self):
         while self.subtag_scroll_layout.itemAt(0):
@@ -224,28 +257,68 @@ class BuildTagPanel(PanelWidget):
         self.subtag_scroll_layout.addWidget(c)
 
     def add_aliases(self):
+        fields: set[TagAliasWidget] = set()
         for i in range(0, self.alias_scroll_layout.count()):
-            field: QLineEdit = self.alias_scroll_layout.itemAt(i).widget()
-            if field.text() != '':
-                self.lib.add_alias(self.tag.id, field.text())
+            widget = self.alias_scroll_layout.itemAt(i).widget()
+
+            if not isinstance(widget, TagAliasWidget):
+                return
+
+            field: TagAliasWidget = cast(TagAliasWidget, widget)
+            fields.add(field)
+
+        remove: set[str] = self.alias_names - set([a.text_field.text() for a in fields])
+
+        self.alias_names = self.alias_names - remove
+
+        for field in fields:
+            # add new aliases
+            if field.text_field.text() != "":
+                self.alias_names.add(field.text_field.text())
+
+    def update_new_alias_name_dict(self):
+        for i in range(0, self.alias_scroll_layout.count()):
+            widget = self.alias_scroll_layout.itemAt(i).widget()
+
+            if not isinstance(widget, TagAliasWidget):
+                return
+
+            field: TagAliasWidget = cast(TagAliasWidget, widget)
+            text_field_text = field.text_field.text()
+
+            self.new_alias_names[field.id] = text_field_text
 
     def set_aliases(self):
+        self.update_new_alias_name_dict()
+
+        while self.alias_scroll_layout.itemAt(0):
+            self.alias_scroll_layout.takeAt(0).widget().deleteLater()
+
+        self.alias_names.clear()
+
         for alias_id in self.alias_ids:
-            new_field = QLineEdit()
+            alias = self.lib.get_alias(self.tag.id, alias_id)
+
+            alias_name = alias.name if alias else self.new_alias_names[alias_id]
+
+            new_field = TagAliasWidget(
+                alias_id,
+                alias_name,
+                lambda a=alias_name, id=alias_id: self.remove_alias_callback(a, id),
+            )
             new_field.setMaximumHeight(25)
             new_field.setMinimumHeight(25)
-            new_field.setText(self.lib.get_alias(self.tag.id, alias_id).name)
             self.alias_scroll_layout.addWidget(new_field)
-            
+            self.alias_names.add(alias_name)
 
     def set_tag(self, tag: Tag):
         self.tag = tag
-        
+
         logger.info("setting tag", tag=tag)
 
         self.name_field.setText(tag.name)
         self.shorthand_field.setText(tag.shorthand or "")
-       
+
         for alias_id in tag.alias_ids:
             self.alias_ids.add(alias_id)
 
@@ -253,15 +326,14 @@ class BuildTagPanel(PanelWidget):
 
         for subtag in tag.subtag_ids:
             self.subtag_ids.add(subtag)
-        
+
         self.set_subtags()
-        
+
         # select item in self.color_field where the userData value matched tag.color
         for i in range(self.color_field.count()):
             if self.color_field.itemData(i) == tag.color:
                 self.color_field.setCurrentIndex(i)
                 break
-
 
     def build_tag(self) -> Tag:
         color = self.color_field.currentData() or TagColor.DEFAULT
