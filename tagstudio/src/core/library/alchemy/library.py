@@ -857,6 +857,9 @@ class Library:
             session.add(alias)
 
     def update_subtags(self, tag, subtag_ids, session):
+        if tag.id in subtag_ids:
+            subtag_ids.remove(tag.id)
+
         # load all tag's subtag to know which to remove
         prev_subtags = session.scalars(select(TagSubtag).where(TagSubtag.parent_id == tag.id)).all()
 
