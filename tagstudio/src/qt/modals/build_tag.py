@@ -216,30 +216,6 @@ class BuildTagPanel(PanelWidget):
         logger.info("remove_alias_callback")
         self.alias_ids.remove(alias_id)
         self.set_aliases()
-        # remove: list[QWidget] = list()
-
-        # for i in range(0, self.alias_scroll_layout.count()):
-        #     widget = self.alias_scroll_layout.itemAt(i).widget()
-
-        #     if not isinstance(widget, TagAliasWidget):
-        #         return
-
-        #     field: TagAliasWidget = cast(TagAliasWidget, widget)
-        #     text_field_text = field.text_field.text()
-
-        #     if text_field_text == alias_name:
-        #         remove.append(widget)
-
-        #     if field.text_field.text() == alias_name and alias_name in self.alias_names:
-        #         self.alias_names.remove(alias_name)
-
-        #     if alias_id in self.alias_ids:
-        #         self.alias_ids.remove(alias_id)
-
-        # #bug when there is only one item left in the aliaslayout and remove
-        # #is called, the ui does not update again until an item is added
-        # for item in remove:
-        #     self.alias_scroll_layout.removeWidget(item)
 
     def set_subtags(self):
         while self.subtag_scroll_layout.itemAt(0):

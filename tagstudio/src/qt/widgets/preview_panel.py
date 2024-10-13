@@ -58,16 +58,6 @@ if typing.TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
-def update_selected_entry(driver: "QtDriver"):
-    for grid_idx in driver.selected:
-        entry = driver.frame_content[grid_idx]
-        # reload entry
-        results = driver.lib.search_library(FilterState(id=entry.id))
-        logger.info("found item", entries=len(results), grid_idx=grid_idx, lookup_id=entry.id)
-        assert results, f"Entry not found: {entry.id}"
-        driver.frame_content[grid_idx] = next(results)
-
-
 class PreviewPanel(QWidget):
     """The Preview Panel Widget."""
 
@@ -243,6 +233,18 @@ class PreviewPanel(QWidget):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.addWidget(splitter)
 
+    def update_selected_entry(self, driver: "QtDriver"):
+        for grid_idx in driver.selected:
+            entry = driver.frame_content[grid_idx]
+            results = self.lib.search_library(FilterState(id=entry.id))
+            logger.info(
+                "found item",
+                entries=len(results.items),
+                grid_idx=grid_idx,
+                lookup_id=entry.id,
+            )
+            self.driver.frame_content[grid_idx] = results[0]
+
     def remove_field_prompt(self, name: str) -> str:
         return f'Are you sure you want to remove field "{name}"?'
 
@@ -410,11 +412,7 @@ class PreviewPanel(QWidget):
             self.add_field_button.clicked.disconnect()
 
         self.add_field_modal.done.connect(
-            lambda items: (
-                self.add_field_to_selected(items),
-                update_selected_entry(self.driver),
-                self.update_widgets(),
-            )
+            lambda f: (self.add_field_to_selected(f), self.update_widgets())
         )
         self.add_field_modal.is_connected = True
         self.add_field_button.clicked.connect(self.add_field_modal.show)
@@ -490,196 +488,199 @@ class PreviewPanel(QWidget):
             self.driver.frame_content[grid_idx] = results[0]
 
         if len(self.driver.selected) == 1:
-            # 1 Selected Entry
-            selected_idx = self.driver.selected[0]
-            item = self.driver.frame_content[selected_idx]
-
-            self.preview_img.show()
-            self.preview_vid.stop()
-            self.preview_vid.hide()
-
-            # If a new selection is made, update the thumbnail and filepath.
-            if not self.selected or self.selected != self.driver.selected:
-                filepath = self.lib.library_dir / item.path
-                self.file_label.set_file_path(filepath)
-                ratio = self.devicePixelRatio()
-                self.thumb_renderer.render(
-                    time.time(),
-                    filepath,
-                    (512, 512),
-                    ratio,
-                    update_on_ratio_change=True,
-                )
-                self.file_label.setText("\u200b".join(str(filepath)))
-                self.file_label.setCursor(Qt.CursorShape.PointingHandCursor)
-
-                self.preview_img.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
-                self.preview_img.setCursor(Qt.CursorShape.PointingHandCursor)
-
-                self.opener = FileOpenerHelper(filepath)
-                self.open_file_action.triggered.connect(self.opener.open_file)
-                self.open_explorer_action.triggered.connect(self.opener.open_explorer)
-
-                # TODO: Do this somewhere else, this is just here temporarily.
-                try:
-                    image = None
-                    if filepath.suffix.lower() in IMAGE_TYPES:
-                        image = Image.open(str(filepath))
-                    elif filepath.suffix.lower() in RAW_IMAGE_TYPES:
-                        try:
-                            with rawpy.imread(str(filepath)) as raw:
-                                rgb = raw.postprocess()
-                                image = Image.new("L", (rgb.shape[1], rgb.shape[0]), color="black")
-                        except (
-                            rawpy._rawpy.LibRawIOError,
-                            rawpy._rawpy.LibRawFileUnsupportedError,
-                        ):
-                            pass
-                    elif filepath.suffix.lower() in VIDEO_TYPES:
-                        video = cv2.VideoCapture(str(filepath))
-                        if video.get(cv2.CAP_PROP_FRAME_COUNT) <= 0:
-                            raise cv2.error("File is invalid or has 0 frames")
-                        video.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        success, frame = video.read()
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        image = Image.fromarray(frame)
-                        if success:
-                            self.preview_img.hide()
-                            self.preview_vid.play(filepath, QSize(image.width, image.height))
-                            self.resizeEvent(
-                                QResizeEvent(
-                                    QSize(image.width, image.height),
-                                    QSize(image.width, image.height),
-                                )
-                            )
-                            self.preview_vid.show()
-
-                    # Stats for specific file types are displayed here.
-                    if image and filepath.suffix.lower() in (
-                        IMAGE_TYPES + VIDEO_TYPES + RAW_IMAGE_TYPES
-                    ):
-                        self.dimensions_label.setText(
-                            f"{filepath.suffix.upper()[1:]}"
-                            f"  •  {format_size(filepath.stat().st_size)}\n{image.width} "
-                            f"x {image.height} px"
-                        )
-                    else:
-                        self.dimensions_label.setText(
-                            f"{filepath.suffix.upper()[1:]}"
-                            f"  •  {format_size(filepath.stat().st_size)}"
-                        )
-
-                    if not filepath.is_file():
-                        raise FileNotFoundError
-
-                except (FileNotFoundError, cv2.error) as e:
-                    self.dimensions_label.setText(f"{filepath.suffix.upper()}")
-                    logger.error("Couldn't Render thumbnail", filepath=filepath, error=e)
-
-                except (
-                    UnidentifiedImageError,
-                    DecompressionBombError,
-                ) as e:
-                    self.dimensions_label.setText(
-                        f"{filepath.suffix.upper()[1:]}  •  {format_size(filepath.stat().st_size)}"
-                    )
-                    logger.error("Couldn't Render thumbnail", filepath=filepath, error=e)
-
-                if self.preview_img.is_connected:
-                    self.preview_img.clicked.disconnect()
-                self.preview_img.clicked.connect(lambda checked=False, pth=filepath: open_file(pth))
-                self.preview_img.is_connected = True
-
-            self.selected = self.driver.selected
-            logger.info(
-                "rendering item fields",
-                item=item.id,
-                fields=[x.type_key for x in item.fields],
-            )
-            for idx, field in enumerate(item.fields):
-                self.write_container(idx, field)
-
-            # Hide leftover containers
-            if len(self.containers) > len(item.fields):
-                for i, c in enumerate(self.containers):
-                    if i > (len(item.fields) - 1):
-                        c.setHidden(True)
-
-            self.add_field_button.setHidden(False)
-
-        # Multiple Selected Items
+            self._handle_single_entry_selection()
         elif len(self.driver.selected) > 1:
-            self.preview_img.show()
-            self.preview_vid.stop()
-            self.preview_vid.hide()
-            if self.selected != self.driver.selected:
-                self.file_label.setText(f"{len(self.driver.selected)} Items Selected")
-                self.file_label.setCursor(Qt.CursorShape.ArrowCursor)
-                self.file_label.set_file_path("")
-                self.dimensions_label.setText("")
-
-                self.preview_img.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-                self.preview_img.setCursor(Qt.CursorShape.ArrowCursor)
-
-                ratio = self.devicePixelRatio()
-                self.thumb_renderer.render(
-                    time.time(),
-                    "",
-                    (512, 512),
-                    ratio,
-                    is_loading=True,
-                    update_on_ratio_change=True,
-                )
-                if self.preview_img.is_connected:
-                    self.preview_img.clicked.disconnect()
-                    self.preview_img.is_connected = False
-
-            # fill shared fields from first item
-            first_item = self.driver.frame_content[self.driver.selected[0]]
-            common_fields = [f for f in first_item.fields]
-            mixed_fields = []
-
-            # iterate through other items
-            for grid_idx in self.driver.selected[1:]:
-                item = self.driver.frame_content[grid_idx]
-                item_field_types = {f.type_key for f in item.fields}
-                for f in common_fields[:]:
-                    if f.type_key not in item_field_types:
-                        common_fields.remove(f)
-                        mixed_fields.append(f)
-
-            self.common_fields = common_fields
-            self.mixed_fields = sorted(mixed_fields, key=lambda x: x.type.position)
-
-            self.selected = list(self.driver.selected)
-            logger.info(
-                "update_widgets common_fields",
-                common_fields=self.common_fields,
-            )
-            for i, f in enumerate(self.common_fields):
-                self.write_container(i, f)
-
-            logger.info(
-                "update_widgets mixed_fields",
-                mixed_fields=self.mixed_fields,
-                start=len(self.common_fields),
-            )
-            for i, f in enumerate(self.mixed_fields, start=len(self.common_fields)):
-                self.write_container(i, f, is_mixed=True)
-
-            # Hide leftover containers
-            if len(self.containers) > len(self.common_fields) + len(self.mixed_fields):
-                for i, c in enumerate(self.containers):
-                    if i > (len(self.common_fields) + len(self.mixed_fields) - 1):
-                        c.setHidden(True)
-
-            self.add_field_button.setHidden(False)
+            self._handle_multiple_entry_selection()
 
         self.initialized = True
 
         self.setWindowTitle(window_title)
         self.show()
         return True
+
+    def _handle_multiple_entry_selection(self):
+        self.preview_img.show()
+        self.preview_vid.stop()
+        self.preview_vid.hide()
+        if self.selected != self.driver.selected:
+            self.file_label.setText(f"{len(self.driver.selected)} Items Selected")
+            self.file_label.setCursor(Qt.CursorShape.ArrowCursor)
+            self.file_label.set_file_path("")
+            self.dimensions_label.setText("")
+
+            self.preview_img.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+            self.preview_img.setCursor(Qt.CursorShape.ArrowCursor)
+
+            ratio = self.devicePixelRatio()
+            self.thumb_renderer.render(
+                time.time(),
+                "",
+                (512, 512),
+                ratio,
+                is_loading=True,
+                update_on_ratio_change=True,
+            )
+            if self.preview_img.is_connected:
+                self.preview_img.clicked.disconnect()
+                self.preview_img.is_connected = False
+
+            # fill shared fields from first item
+        first_item = self.driver.frame_content[self.driver.selected[0]]
+        common_fields = [f for f in first_item.fields]
+        mixed_fields = []
+
+        # iterate through other items
+        for grid_idx in self.driver.selected[1:]:
+            item = self.driver.frame_content[grid_idx]
+            item_field_types = {f.type_key for f in item.fields}
+            for field in common_fields[:]:
+                if field.type_key not in item_field_types:
+                    common_fields.remove(field)
+                    mixed_fields.append(field)
+
+        self.common_fields = common_fields
+        self.mixed_fields = sorted(mixed_fields, key=lambda x: x.type.position)
+
+        self.selected = list(self.driver.selected)
+        logger.info(
+            "update_widgets common_fields",
+            common_fields=self.common_fields,
+        )
+        for i, field in enumerate(self.common_fields):
+            self.write_container(i, field)
+
+        logger.info(
+            "update_widgets mixed_fields",
+            mixed_fields=self.mixed_fields,
+            start=len(self.common_fields),
+        )
+        for i, field in enumerate(self.mixed_fields, start=len(self.common_fields)):
+            self.write_container(i, field, is_mixed=True)
+
+            # Hide leftover containers
+        if len(self.containers) > len(self.common_fields) + len(self.mixed_fields):
+            for i, c in enumerate(self.containers):
+                if i > (len(self.common_fields) + len(self.mixed_fields) - 1):
+                    c.setHidden(True)
+
+        self.add_field_button.setHidden(False)
+
+    def _handle_single_entry_selection(self):
+        selected_idx = self.driver.selected[0]
+        item = self.driver.frame_content[selected_idx]
+
+        self.preview_img.show()
+        self.preview_vid.stop()
+        self.preview_vid.hide()
+
+        # If a new selection is made, update the thumbnail and filepath.
+        if not self.selected or self.selected != self.driver.selected:
+            filepath = self.lib.library_dir / item.path
+            self.file_label.set_file_path(filepath)
+            ratio = self.devicePixelRatio()
+            self.thumb_renderer.render(
+                time.time(),
+                filepath,
+                (512, 512),
+                ratio,
+                update_on_ratio_change=True,
+            )
+            self.file_label.setText("\u200b".join(str(filepath)))
+            self.file_label.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            self.preview_img.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+            self.preview_img.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            self.opener = FileOpenerHelper(filepath)
+            self.open_file_action.triggered.connect(self.opener.open_file)
+            self.open_explorer_action.triggered.connect(self.opener.open_explorer)
+
+            # TODO: Do this somewhere else, this is just here temporarily.
+            try:
+                image = None
+                if filepath.suffix.lower() in IMAGE_TYPES:
+                    image = Image.open(str(filepath))
+                elif filepath.suffix.lower() in RAW_IMAGE_TYPES:
+                    try:
+                        with rawpy.imread(str(filepath)) as raw:
+                            rgb = raw.postprocess()
+                            image = Image.new("L", (rgb.shape[1], rgb.shape[0]), color="black")
+                    except (
+                        rawpy._rawpy.LibRawIOError,
+                        rawpy._rawpy.LibRawFileUnsupportedError,
+                    ):
+                        pass
+                elif filepath.suffix.lower() in VIDEO_TYPES:
+                    video = cv2.VideoCapture(str(filepath))
+                    if video.get(cv2.CAP_PROP_FRAME_COUNT) <= 0:
+                        raise cv2.error("File is invalid or has 0 frames")
+                    video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    success, frame = video.read()
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    image = Image.fromarray(frame)
+                    if success:
+                        self.preview_img.hide()
+                        self.preview_vid.play(filepath, QSize(image.width, image.height))
+                        self.resizeEvent(
+                            QResizeEvent(
+                                QSize(image.width, image.height),
+                                QSize(image.width, image.height),
+                            )
+                        )
+                        self.preview_vid.show()
+
+                    # Stats for specific file types are displayed here.
+                if image and filepath.suffix.lower() in (
+                    IMAGE_TYPES + VIDEO_TYPES + RAW_IMAGE_TYPES
+                ):
+                    self.dimensions_label.setText(
+                        f"{filepath.suffix.upper()[1:]}"
+                        f"  •  {format_size(filepath.stat().st_size)}\n{image.width} "
+                        f"x {image.height} px"
+                    )
+                else:
+                    self.dimensions_label.setText(
+                        f"{filepath.suffix.upper()[1:]}"
+                        f"  •  {format_size(filepath.stat().st_size)}"
+                    )
+
+                if not filepath.is_file():
+                    raise FileNotFoundError
+
+            except (FileNotFoundError, cv2.error) as e:
+                self.dimensions_label.setText(f"{filepath.suffix.upper()}")
+                logger.error("Couldn't Render thumbnail", filepath=filepath, error=e)
+
+            except (
+                UnidentifiedImageError,
+                DecompressionBombError,
+            ) as e:
+                self.dimensions_label.setText(
+                    f"{filepath.suffix.upper()[1:]}  •  {format_size(filepath.stat().st_size)}"
+                )
+                logger.error("Couldn't Render thumbnail", filepath=filepath, error=e)
+
+            if self.preview_img.is_connected:
+                self.preview_img.clicked.disconnect()
+            self.preview_img.clicked.connect(lambda checked=False, pth=filepath: open_file(pth))
+            self.preview_img.is_connected = True
+
+        self.selected = self.driver.selected
+        logger.info(
+            "rendering item fields",
+            item=item.id,
+            fields=[x.type_key for x in item.fields],
+        )
+        for idx, field in enumerate(item.fields):
+            self.write_container(idx, field)
+
+            # Hide leftover containers
+        if len(self.containers) > len(item.fields):
+            for i, c in enumerate(self.containers):
+                if i > (len(item.fields) - 1):
+                    c.setHidden(True)
+
+        self.add_field_button.setHidden(False)
 
     def set_tags_updated_slot(self, slot: object):
         """Replacement for tag_callback."""
@@ -753,7 +754,7 @@ class PreviewPanel(QWidget):
                         prompt=self.remove_field_prompt(field.type.name),
                         callback=lambda: (
                             self.remove_field(field),
-                            update_selected_entry(self.driver),
+                            self.update_selected_entry(self.driver),
                             # reload entry and its fields
                             self.update_widgets(),
                         ),
@@ -768,122 +769,97 @@ class PreviewPanel(QWidget):
             self.tags_updated.emit()
             # self.dynamic_widgets.append(inner_container)
         elif field.type.type == FieldTypeEnum.TEXT_LINE:
-            container.set_title(field.type.name)
-            container.set_inline(False)
-
-            # Normalize line endings in any text content.
-            if not is_mixed:
-                assert isinstance(field.value, (str, type(None)))
-                text = field.value or ""
-            else:
-                text = "<i>Mixed Data</i>"
-
-            title = f"{field.type.name} ({field.type.type.value})"
-            inner_container = TextWidget(title, text)
-            container.set_inner_widget(inner_container)
-            if not is_mixed:
-                modal = PanelModal(
-                    EditTextLine(field.value),
-                    title=title,
-                    window_title=f"Edit {field.type.type.value}",
-                    save_callback=(
-                        lambda content: (
-                            self.update_field(field, content),
-                            self.update_widgets(),
-                        )
-                    ),
-                )
-                if "pytest" in sys.modules:
-                    # for better testability
-                    container.modal = modal  # type: ignore
-
-                container.set_edit_callback(modal.show)
-                container.set_remove_callback(
-                    lambda: self.remove_message_box(
-                        prompt=self.remove_field_prompt(field.type.type.value),
-                        callback=lambda: (
-                            self.remove_field(field),
-                            self.update_widgets(),
-                        ),
-                    )
-                )
+            self._handle_text_line_field_type(field, is_mixed, container)
 
         elif field.type.type == FieldTypeEnum.TEXT_BOX:
-            container.set_title(field.type.name)
-            # container.set_editable(True)
-            container.set_inline(False)
-            # Normalize line endings in any text content.
-            if not is_mixed:
-                assert isinstance(field.value, (str, type(None)))
-                text = (field.value or "").replace("\r", "\n")
-            else:
-                text = "<i>Mixed Data</i>"
-            title = f"{field.type.name} (Text Box)"
-            inner_container = TextWidget(title, text)
-            container.set_inner_widget(inner_container)
-            if not is_mixed:
-                modal = PanelModal(
-                    EditTextBox(field.value),
-                    title=title,
-                    window_title=f"Edit {field.type.name}",
-                    save_callback=(
-                        lambda content: (
-                            self.update_field(field, content),
-                            self.update_widgets(),
-                        )
-                    ),
-                )
-                container.set_edit_callback(modal.show)
-                container.set_remove_callback(
-                    lambda: self.remove_message_box(
-                        prompt=self.remove_field_prompt(field.type.name),
-                        callback=lambda: (
-                            self.remove_field(field),
-                            self.update_widgets(),
-                        ),
-                    )
-                )
+            self._handle_text_box_field_type(field, is_mixed, container)
 
         elif field.type.type == FieldTypeEnum.DATETIME:
-            if not is_mixed:
-                try:
-                    container.set_title(field.type.name)
-                    # container.set_editable(False)
-                    container.set_inline(False)
-                    # TODO: Localize this and/or add preferences.
-                    date = dt.strptime(field.value, "%Y-%m-%d %H:%M:%S")
-                    title = f"{field.type.name} (Date)"
-                    inner_container = TextWidget(title, date.strftime("%D - %r"))
-                    container.set_inner_widget(inner_container)
-                except Exception:
-                    container.set_title(field.type.name)
-                    # container.set_editable(False)
-                    container.set_inline(False)
-                    title = f"{field.type.name} (Date) (Unknown Format)"
-                    inner_container = TextWidget(title, str(field.value))
-                    container.set_inner_widget(inner_container)
-
-                container.set_remove_callback(
-                    lambda: self.remove_message_box(
-                        prompt=self.remove_field_prompt(field.type.name),
-                        callback=lambda: (
-                            self.remove_field(field),
-                            self.update_widgets(),
-                        ),
-                    )
-                )
-            else:
-                text = "<i>Mixed Data</i>"
-                title = f"{field.type.name} (Wacky Date)"
-                inner_container = TextWidget(title, text)
-                container.set_inner_widget(inner_container)
+            self._handle_date_time_field_type(field, is_mixed, container)
         else:
-            logger.warning("write_container - unknown field", field=field)
-            container.set_title(field.type.name)
-            container.set_inline(False)
-            title = f"{field.type.name} (Unknown Field Type)"
-            inner_container = TextWidget(title, field.type.name)
+            self._handle_unkown_field_type(field, container)
+
+        container.edit_button.setHidden(True)
+        container.setHidden(False)
+        self.place_add_field_button()
+
+    def _handle_unkown_field_type(self, field, container):
+        logger.warning("write_container - unknown field", field=field)
+        container.set_title(field.type.name)
+        container.set_inline(False)
+        title = f"{field.type.name} (Unknown Field Type)"
+        inner_container = TextWidget(title, field.type.name)
+        container.set_inner_widget(inner_container)
+        container.set_remove_callback(
+            lambda: self.remove_message_box(
+                prompt=self.remove_field_prompt(field.type.name),
+                callback=lambda: (
+                    self.remove_field(field),
+                    self.update_widgets(),
+                ),
+            )
+        )
+
+    def _handle_date_time_field_type(self, field, is_mixed, container):
+        if not is_mixed:
+            try:
+                container.set_title(field.type.name)
+                # container.set_editable(False)
+                container.set_inline(False)
+                # TODO: Localize this and/or add preferences.
+                date = dt.strptime(field.value, "%Y-%m-%d %H:%M:%S")
+                title = f"{field.type.name} (Date)"
+                inner_container = TextWidget(title, date.strftime("%D - %r"))
+                container.set_inner_widget(inner_container)
+            except Exception:
+                container.set_title(field.type.name)
+                # container.set_editable(False)
+                container.set_inline(False)
+                title = f"{field.type.name} (Date) (Unknown Format)"
+                inner_container = TextWidget(title, str(field.value))
+                container.set_inner_widget(inner_container)
+
+            container.set_remove_callback(
+                lambda: self.remove_message_box(
+                    prompt=self.remove_field_prompt(field.type.name),
+                    callback=lambda: (
+                        self.remove_field(field),
+                        self.update_widgets(),
+                    ),
+                )
+            )
+        else:
+            text = "<i>Mixed Data</i>"
+            title = f"{field.type.name} (Wacky Date)"
+            inner_container = TextWidget(title, text)
             container.set_inner_widget(inner_container)
+
+    def _handle_text_box_field_type(self, field, is_mixed, container):
+        container.set_title(field.type.name)
+        # container.set_editable(True)
+        container.set_inline(False)
+        # Normalize line endings in any text content.
+        if not is_mixed:
+            assert isinstance(field.value, (str, type(None)))
+            text = (field.value or "").replace("\r", "\n")
+        else:
+            text = "<i>Mixed Data</i>"
+        title = f"{field.type.name} (Text Box)"
+        inner_container = TextWidget(title, text)
+        container.set_inner_widget(inner_container)
+        if not is_mixed:
+            modal = PanelModal(
+                EditTextBox(field.value),
+                title=title,
+                window_title=f"Edit {field.type.name}",
+                save_callback=(
+                    lambda content: (
+                        self.update_field(field, content),
+                        self.update_widgets(),
+                    )
+                ),
+            )
+            container.set_edit_callback(modal.show)
             container.set_remove_callback(
                 lambda: self.remove_message_box(
                     prompt=self.remove_field_prompt(field.type.name),
@@ -894,9 +870,46 @@ class PreviewPanel(QWidget):
                 )
             )
 
-        container.edit_button.setHidden(True)
-        container.setHidden(False)
-        self.place_add_field_button()
+    def _handle_text_line_field_type(self, field, is_mixed, container):
+        container.set_title(field.type.name)
+        container.set_inline(False)
+
+        # Normalize line endings in any text content.
+        if not is_mixed:
+            assert isinstance(field.value, (str, type(None)))
+            text = field.value or ""
+        else:
+            text = "<i>Mixed Data</i>"
+
+        title = f"{field.type.name} ({field.type.type.value})"
+        inner_container = TextWidget(title, text)
+        container.set_inner_widget(inner_container)
+        if not is_mixed:
+            modal = PanelModal(
+                EditTextLine(field.value),
+                title=title,
+                window_title=f"Edit {field.type.type.value}",
+                save_callback=(
+                    lambda content: (
+                        self.update_field(field, content),
+                        self.update_widgets(),
+                    )
+                ),
+            )
+            if "pytest" in sys.modules:
+                # for better testability
+                container.modal = modal  # type: ignore
+
+            container.set_edit_callback(modal.show)
+            container.set_remove_callback(
+                lambda: self.remove_message_box(
+                    prompt=self.remove_field_prompt(field.type.type.value),
+                    callback=lambda: (
+                        self.remove_field(field),
+                        self.update_widgets(),
+                    ),
+                )
+            )
 
     def remove_field(self, field: BaseField):
         """Remove a field from all selected Entries."""
@@ -930,6 +943,10 @@ class PreviewPanel(QWidget):
             field,
             content,
         )
+
+        # TODO: write_container(index, field)
+        # for i, field in enumerate(self.common_fields):
+        #     self.write_container(i, field)
 
     def remove_message_box(self, prompt: str, callback: Callable) -> None:
         remove_mb = QMessageBox()
