@@ -6,8 +6,13 @@
 from typing import cast
 
 import structlog
+from PySide6 import QtCore
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import (
+    QAction,
+)
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFrame,
     QLabel,
@@ -94,11 +99,19 @@ class BuildTagPanel(PanelWidget):
 
         self.alias_add_button = QPushButton()
         self.alias_add_button.setText("+")
+        self.alias_add_button.setToolTip("CTRL + A")
+        self.alias_add_button.setShortcut(
+            QtCore.QKeyCombination(
+                QtCore.Qt.KeyboardModifier(QtCore.Qt.KeyboardModifier.ControlModifier),
+                QtCore.Qt.Key.Key_A,
+            )
+        )
 
         self.alias_add_button.clicked.connect(lambda: self.add_alias_callback())
         self.aliases_layout.addWidget(self.alias_add_button)
 
         # Subtags ------------------------------------------------------------
+
         self.subtags_widget = QWidget()
         self.subtags_layout = QVBoxLayout(self.subtags_widget)
         self.subtags_layout.setStretch(1, 1)
@@ -127,6 +140,13 @@ class BuildTagPanel(PanelWidget):
 
         self.subtags_add_button = QPushButton()
         self.subtags_add_button.setText("+")
+        self.subtags_add_button.setToolTip("CTRL + P")
+        self.subtags_add_button.setShortcut(
+            QtCore.QKeyCombination(
+                QtCore.Qt.KeyboardModifier(QtCore.Qt.KeyboardModifier.ControlModifier),
+                QtCore.Qt.Key.Key_P,
+            )
+        )
 
         exclude_ids: list[int] = list()
         if tag is not None:
@@ -172,6 +192,15 @@ class BuildTagPanel(PanelWidget):
             )
         )
         self.color_layout.addWidget(self.color_field)
+        remove_selected_alias_action = QAction("remove selected alias", self)
+        remove_selected_alias_action.triggered.connect(self.remove_selected_alias)
+        remove_selected_alias_action.setShortcut(
+            QtCore.QKeyCombination(
+                QtCore.Qt.KeyboardModifier(QtCore.Qt.KeyboardModifier.ControlModifier),
+                QtCore.Qt.Key.Key_D,
+            )
+        )
+        self.addAction(remove_selected_alias_action)
 
         # Add Widgets to Layout ================================================
         self.root_layout.addWidget(self.name_widget)
@@ -187,6 +216,21 @@ class BuildTagPanel(PanelWidget):
         self.new_alias_names: dict = dict()
 
         self.set_tag(tag or Tag(name="New Tag"))
+
+    def keyPressEvent(self, event):  # noqa: N802
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:  # type: ignore
+            focused_widget = QApplication.focusWidget()
+            if isinstance(focused_widget.parent(), TagAliasWidget):
+                self.add_alias_callback()
+
+    def remove_selected_alias(self):
+        focused_widget = QApplication.focusWidget()
+        if isinstance(focused_widget.parent(), TagAliasWidget):
+            cast(TagAliasWidget, focused_widget.parent()).on_remove.emit()
+            count = self.alias_scroll_layout.count()
+            cast(
+                TagAliasWidget, self.alias_scroll_layout.itemAt(count - 1).widget()
+            ).text_field.setFocus()
 
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
@@ -211,6 +255,7 @@ class BuildTagPanel(PanelWidget):
         new_field.setMaximumHeight(25)
         new_field.setMinimumHeight(25)
         self.alias_scroll_layout.addWidget(new_field)
+        new_field.text_field.setFocus()
 
     def remove_alias_callback(self, alias_name: str, alias_id: int | None = None):
         logger.info("remove_alias_callback")
