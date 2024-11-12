@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from src.core.library import Library, Tag
 from src.core.library.alchemy.enums import TagColor
 from src.core.palette import ColorType, get_tag_color
+from src.qt.flowlayout import FlowLayout
 from src.qt.modals.tag_search import TagSearchPanel
 from src.qt.widgets.panel import PanelModal, PanelWidget
 from src.qt.widgets.tag import TagAliasWidget, TagWidget
@@ -83,19 +84,8 @@ class BuildTagPanel(PanelWidget):
         self.aliases_title.setText("Aliases")
         self.aliases_layout.addWidget(self.aliases_title)
 
-        self.alias_scroll_contents = QWidget()
-
-        self.alias_scroll_layout = QVBoxLayout(self.alias_scroll_contents)
-        self.alias_scroll_layout.setContentsMargins(6, 0, 6, 0)
-        self.alias_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        self.alias_scroll_area = QScrollArea()
-        self.alias_scroll_area.setWidgetResizable(True)
-        self.alias_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
-        self.alias_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        self.alias_scroll_area.setWidget(self.alias_scroll_contents)
-
-        self.aliases_layout.addWidget(self.alias_scroll_area)
+        self.aliases_flow_widget = QWidget()
+        self.aliases_flow_layout = FlowLayout(self.aliases_flow_widget)
 
         self.alias_add_button = QPushButton()
         self.alias_add_button.setText("+")
@@ -216,6 +206,7 @@ class BuildTagPanel(PanelWidget):
         self.root_layout.addWidget(self.name_widget)
         self.root_layout.addWidget(self.shorthand_widget)
         self.root_layout.addWidget(self.aliases_widget)
+        self.root_layout.addWidget(self.aliases_flow_widget)
         self.root_layout.addWidget(self.subtags_widget)
         self.root_layout.addWidget(self.color_widget)
         # self.parent().done.connect(self.update_tag)
@@ -234,13 +225,21 @@ class BuildTagPanel(PanelWidget):
                 self.add_alias_callback()
 
     def remove_selected_alias(self):
+        count = self.aliases_flow_layout.count()
+        if count <= 0:
+            return
+
         focused_widget = QApplication.focusWidget()
         if isinstance(focused_widget.parent(), TagAliasWidget):
             cast(TagAliasWidget, focused_widget.parent()).on_remove.emit()
-            count = self.alias_scroll_layout.count()
+        
+        count = self.aliases_flow_layout.count()
+        if count > 0:
             cast(
-                TagAliasWidget, self.alias_scroll_layout.itemAt(count - 1).widget()
+                TagAliasWidget, self.aliases_flow_layout.itemAt(count - 1).widget()
             ).text_field.setFocus()
+        else:
+            self.alias_add_button.setFocus()
 
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
@@ -261,18 +260,20 @@ class BuildTagPanel(PanelWidget):
         new_field = TagAliasWidget()
         id = new_field.__hash__()
         new_field.id = id
+        
         new_field.on_remove.connect(lambda a="": self.remove_alias_callback(a, id))
-        self.alias_ids.add(id)
-        self.new_alias_names[id] = ""
         new_field.setMaximumHeight(25)
         new_field.setMinimumHeight(25)
-        self.alias_scroll_layout.addWidget(new_field)
+        
+        self.alias_ids.add(id)
+        self.new_alias_names[id] = ""
+        self.aliases_flow_layout.addWidget(new_field)
         new_field.text_field.setFocus()
 
     def remove_alias_callback(self, alias_name: str, alias_id: int | None = None):
         logger.info("remove_alias_callback")
         self.alias_ids.remove(alias_id)
-        self.set_aliases()
+        self._set_aliases()
 
     def set_subtags(self):
         while self.subtag_scroll_layout.itemAt(0):
@@ -293,8 +294,8 @@ class BuildTagPanel(PanelWidget):
 
     def add_aliases(self):
         fields: set[TagAliasWidget] = set()
-        for i in range(0, self.alias_scroll_layout.count()):
-            widget = self.alias_scroll_layout.itemAt(i).widget()
+        for i in range(0, self.aliases_flow_layout.count()):
+            widget = self.aliases_flow_layout.itemAt(i).widget()
 
             if not isinstance(widget, TagAliasWidget):
                 return
@@ -311,9 +312,9 @@ class BuildTagPanel(PanelWidget):
             if field.text_field.text() != "":
                 self.alias_names.add(field.text_field.text())
 
-    def update_new_alias_name_dict(self):
-        for i in range(0, self.alias_scroll_layout.count()):
-            widget = self.alias_scroll_layout.itemAt(i).widget()
+    def _update_new_alias_name_dict(self):
+        for i in range(0, self.aliases_flow_layout.count()):
+            widget = self.aliases_flow_layout.itemAt(i).widget()
 
             if not isinstance(widget, TagAliasWidget):
                 return
@@ -323,11 +324,11 @@ class BuildTagPanel(PanelWidget):
 
             self.new_alias_names[field.id] = text_field_text
 
-    def set_aliases(self):
-        self.update_new_alias_name_dict()
+    def _set_aliases(self):
+        self._update_new_alias_name_dict()
 
-        while self.alias_scroll_layout.itemAt(0):
-            self.alias_scroll_layout.takeAt(0).widget().deleteLater()
+        while self.aliases_flow_layout.itemAt(0):
+            self.aliases_flow_layout.takeAt(0).widget().deleteLater()
 
         self.alias_names.clear()
 
@@ -343,7 +344,7 @@ class BuildTagPanel(PanelWidget):
             )
             new_field.setMaximumHeight(25)
             new_field.setMinimumHeight(25)
-            self.alias_scroll_layout.addWidget(new_field)
+            self.aliases_flow_layout.addWidget(new_field)
             self.alias_names.add(alias_name)
 
     def set_tag(self, tag: Tag):
@@ -359,7 +360,7 @@ class BuildTagPanel(PanelWidget):
         for alias_id in tag.alias_ids:
             self.alias_ids.add(alias_id)
 
-        self.set_aliases()
+        self._set_aliases()
 
         for subtag in tag.subtag_ids:
             self.subtag_ids.add(subtag)
@@ -367,7 +368,7 @@ class BuildTagPanel(PanelWidget):
         for alias_id in tag.alias_ids:
             self.alias_ids.add(alias_id)
 
-        self.set_aliases()
+        self._set_aliases()
 
         for subtag in tag.subtag_ids:
             self.subtag_ids.add(subtag)
