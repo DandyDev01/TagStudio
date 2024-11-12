@@ -86,6 +86,8 @@ class BuildTagPanel(PanelWidget):
 
         self.aliases_flow_widget = QWidget()
         self.aliases_flow_layout = FlowLayout(self.aliases_flow_widget)
+        self.aliases_flow_layout.setContentsMargins(0, 0, 0, 0)
+        self.aliases_flow_layout.enable_grid_optimizations(value=False)
 
         self.alias_add_button = QPushButton()
         self.alias_add_button.setText("+")
@@ -230,9 +232,13 @@ class BuildTagPanel(PanelWidget):
             return
 
         focused_widget = QApplication.focusWidget()
+
+        if focused_widget is None:
+            return
+
         if isinstance(focused_widget.parent(), TagAliasWidget):
             cast(TagAliasWidget, focused_widget.parent()).on_remove.emit()
-        
+
         count = self.aliases_flow_layout.count()
         if count > 0:
             cast(
@@ -260,11 +266,11 @@ class BuildTagPanel(PanelWidget):
         new_field = TagAliasWidget()
         id = new_field.__hash__()
         new_field.id = id
-        
+
         new_field.on_remove.connect(lambda a="": self.remove_alias_callback(a, id))
         new_field.setMaximumHeight(25)
         new_field.setMinimumHeight(25)
-        
+
         self.alias_ids.add(id)
         self.new_alias_names[id] = ""
         self.aliases_flow_layout.addWidget(new_field)

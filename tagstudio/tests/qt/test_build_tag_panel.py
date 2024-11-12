@@ -1,5 +1,6 @@
 from typing import cast
 
+from PySide6.QtWidgets import QApplication, QMainWindow
 from src.core.library.alchemy.models import Tag
 from src.qt.modals.build_tag import BuildTagPanel
 from src.qt.widgets.tag import TagAliasWidget
@@ -37,6 +38,29 @@ def test_build_tag_panel_remove_subtag_callback(library, generate_tag):
     assert len(panel.subtag_ids) == 0
 
 
+def test_build_tag_panel_remove_selected_alias(library, generate_tag):
+    app = QApplication.instance() or QApplication([])
+
+    window = QMainWindow()
+    parent_tag = library.add_tag(generate_tag("xxx", id=123))
+    panel = BuildTagPanel(library, parent_tag)
+    panel.setParent(window)
+
+    panel.add_alias_callback()
+    window.show()
+
+    assert panel.aliases_flow_layout.count() == 1
+
+    alias_widget = panel.aliases_flow_layout.itemAt(0).widget()
+    alias_widget.text_field.setFocus()
+
+    app.processEvents()
+
+    panel.remove_selected_alias()
+
+    assert panel.aliases_flow_layout.count() == 0
+
+
 def test_build_tag_panel_add_alias_callback(library, generate_tag):
     tag = library.add_tag(generate_tag("xxx", id=123))
     assert tag
@@ -45,7 +69,7 @@ def test_build_tag_panel_add_alias_callback(library, generate_tag):
 
     panel.add_alias_callback()
 
-    assert panel.alias_scroll_layout.count() == 1
+    assert panel.aliases_flow_layout.count() == 1
 
 
 def test_build_tag_panel_remove_alias_callback(library, generate_tag):
@@ -99,12 +123,12 @@ def test_build_tag_panel_add_aliases(library, generate_tag):
 
     panel: BuildTagPanel = BuildTagPanel(library, tag)
 
-    widget = panel.alias_scroll_layout.itemAt(0).widget()
+    widget = panel.aliases_flow_layout.itemAt(0).widget()
 
     alias_names: set[str] = set()
     alias_names.add(cast(TagAliasWidget, widget).text_field.text())
 
-    widget = panel.alias_scroll_layout.itemAt(1).widget()
+    widget = panel.aliases_flow_layout.itemAt(1).widget()
     alias_names.add(cast(TagAliasWidget, widget).text_field.text())
 
     assert "alias" in alias_names
@@ -132,7 +156,7 @@ def test_build_tag_panel_set_aliases(library, generate_tag):
 
     panel: BuildTagPanel = BuildTagPanel(library, tag)
 
-    assert panel.alias_scroll_layout.count() == 1
+    assert panel.aliases_flow_layout.count() == 1
     assert len(panel.alias_names) == 1
     assert len(panel.alias_ids) == 1
 

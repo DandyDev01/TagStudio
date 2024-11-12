@@ -9,7 +9,7 @@ from types import FunctionType
 
 from PIL import Image
 from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QAction, QEnterEvent
+from PySide6.QtGui import QAction, QEnterEvent, QFontMetrics
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
@@ -44,11 +44,14 @@ class TagAliasWidget(QWidget):
         self.on_remove.connect(on_remove_callback)
 
         self.text_field = QLineEdit(self)
+        self.text_field.textChanged.connect(self._adjust_width)
 
         if alias is not None:
             self.text_field.setText(alias)
         else:
             self.text_field.setText("")
+
+        self._adjust_width()
 
         self.remove_button = QPushButton(self)
         self.remove_button.setFlat(True)
@@ -69,6 +72,15 @@ class TagAliasWidget(QWidget):
 
         self.base_layout.addWidget(self.remove_button)
         self.base_layout.addWidget(self.text_field)
+
+    def _adjust_width(self):
+        text = self.text_field.text() or self.text_field.placeholderText()
+        font_metrics = QFontMetrics(self.text_field.font())
+        text_width = font_metrics.horizontalAdvance(text) + 10  # Add padding
+
+        # Set the minimum width of the QLineEdit
+        self.text_field.setMinimumWidth(text_width)
+        self.text_field.adjustSize()
 
     def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802
         self.update()
