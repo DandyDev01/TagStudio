@@ -14,11 +14,9 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
-    QFrame,
     QLabel,
     QLineEdit,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -115,30 +113,10 @@ class BuildTagPanel(PanelWidget):
         self.subtags_title.setText("Parent Tags")
         self.subtags_layout.addWidget(self.subtags_title)
 
-        self.subtag_scroll_contents = QWidget()
-        self.subtag_scroll_layout = QVBoxLayout(self.subtag_scroll_contents)
-        self.subtag_scroll_layout.setContentsMargins(6, 0, 6, 0)
-        self.subtag_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.subtag_scroll_contents = QWidget()
-        self.subtag_scroll_layout = QVBoxLayout(self.subtag_scroll_contents)
-        self.subtag_scroll_layout.setContentsMargins(6, 0, 6, 0)
-        self.subtag_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        self.subtag_scroll_area = QScrollArea()
-        self.subtag_scroll_area = QScrollArea()
-        # self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.subtag_scroll_area.setWidgetResizable(True)
-        self.subtag_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
-        self.subtag_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        self.subtag_scroll_area.setWidget(self.subtag_scroll_contents)
-        self.subtag_scroll_area.setWidgetResizable(True)
-        self.subtag_scroll_area.setFrameShadow(QFrame.Shadow.Plain)
-        self.subtag_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        self.subtag_scroll_area.setWidget(self.subtag_scroll_contents)
-        # self.scroll_area.setMinimumHeight(60)
-
-        self.subtags_layout.addWidget(self.subtag_scroll_area)
-        self.subtags_layout.addWidget(self.subtag_scroll_area)
+        self.subtag_flow_widget = QWidget()
+        self.subtag_flow_layout = FlowLayout(self.subtag_flow_widget)
+        self.subtag_flow_layout.setContentsMargins(0, 0, 0, 0)
+        self.subtag_flow_layout.enable_grid_optimizations(value=False)
 
         self.subtags_add_button = QPushButton()
         self.subtags_add_button.setText("+")
@@ -210,6 +188,7 @@ class BuildTagPanel(PanelWidget):
         self.root_layout.addWidget(self.aliases_widget)
         self.root_layout.addWidget(self.aliases_flow_widget)
         self.root_layout.addWidget(self.subtags_widget)
+        self.root_layout.addWidget(self.subtag_flow_widget)
         self.root_layout.addWidget(self.color_widget)
         # self.parent().done.connect(self.update_tag)
 
@@ -250,12 +229,10 @@ class BuildTagPanel(PanelWidget):
     def add_subtag_callback(self, tag_id: int):
         logger.info("add_subtag_callback", tag_id=tag_id)
         self.subtag_ids.add(tag_id)
-        self.subtag_ids.add(tag_id)
         self.set_subtags()
 
     def remove_subtag_callback(self, tag_id: int):
         logger.info("removing subtag", tag_id=tag_id)
-        self.subtag_ids.remove(tag_id)
         self.subtag_ids.remove(tag_id)
         self.set_subtags()
 
@@ -282,21 +259,14 @@ class BuildTagPanel(PanelWidget):
         self._set_aliases()
 
     def set_subtags(self):
-        while self.subtag_scroll_layout.itemAt(0):
-            self.subtag_scroll_layout.takeAt(0).widget().deleteLater()
-        while self.subtag_scroll_layout.itemAt(0):
-            self.subtag_scroll_layout.takeAt(0).widget().deleteLater()
+        while self.subtag_flow_layout.itemAt(0):
+            self.subtag_flow_layout.takeAt(0).widget().deleteLater()
 
-        c = QWidget()
-        layout = QVBoxLayout(c)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(3)
         for tag_id in self.subtag_ids:
             tag = self.lib.get_tag(tag_id)
             tw = TagWidget(tag, has_edit=False, has_remove=True)
             tw.on_remove.connect(lambda t=tag_id: self.remove_subtag_callback(t))
-            layout.addWidget(tw)
-        self.subtag_scroll_layout.addWidget(c)
+            self.subtag_flow_layout.addWidget(tw)
 
     def add_aliases(self):
         fields: set[TagAliasWidget] = set()

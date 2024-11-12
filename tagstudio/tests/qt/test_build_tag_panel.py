@@ -38,6 +38,11 @@ def test_build_tag_panel_remove_subtag_callback(library, generate_tag):
     assert len(panel.subtag_ids) == 0
 
 
+import os
+
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+
 def test_build_tag_panel_remove_selected_alias(library, generate_tag):
     app = QApplication.instance() or QApplication([])
 
@@ -107,7 +112,7 @@ def test_build_tag_panel_set_subtags(library, generate_tag):
     panel: BuildTagPanel = BuildTagPanel(library, child)
 
     assert len(panel.subtag_ids) == 1
-    assert panel.subtag_scroll_layout.count() == 1
+    assert panel.subtag_flow_layout.count() == 1
 
 
 def test_build_tag_panel_add_aliases(library, generate_tag):
