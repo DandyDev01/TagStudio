@@ -37,18 +37,13 @@ class TagAliasWidget(QWidget):
 
         # if on_click_callback:
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.base_layout = QVBoxLayout(self)
+        self.base_layout = QHBoxLayout(self)
         self.base_layout.setObjectName("baseLayout")
         self.base_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.inner_layout = QHBoxLayout()
-        self.inner_layout.setObjectName("innerLayout")
-        self.inner_layout.setContentsMargins(2, 2, 2, 2)
-
         self.on_remove.connect(on_remove_callback)
 
-        self.text_field = QLineEdit()
-        self.base_layout.addWidget(self.text_field)
+        self.text_field = QLineEdit(self)
 
         if alias is not None:
             self.text_field.setText(alias)
@@ -58,7 +53,7 @@ class TagAliasWidget(QWidget):
         self.remove_button = QPushButton(self)
         self.remove_button.setFlat(True)
         self.remove_button.setText("–")
-        self.remove_button.setHidden(True)
+        self.remove_button.setHidden(False)
         self.remove_button.setStyleSheet(
             f"color: {get_tag_color(ColorType.PRIMARY, TagColor.DEFAULT)};"
             f"background: {get_tag_color(ColorType.TEXT, TagColor.DEFAULT)};"
@@ -72,16 +67,14 @@ class TagAliasWidget(QWidget):
         self.remove_button.setMaximumSize(19, 19)
         self.remove_button.clicked.connect(self.on_remove.emit)
 
-        self.inner_layout.addWidget(self.remove_button)
-        self.inner_layout.addStretch(1)
+        self.base_layout.addWidget(self.remove_button)
+        self.base_layout.addWidget(self.text_field)
 
     def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802
-        self.remove_button.setHidden(False)
         self.update()
         return super().enterEvent(event)
 
     def leaveEvent(self, event: QEvent) -> None:  # noqa: N802
-        self.remove_button.setHidden(True)
         self.update()
         return super().leaveEvent(event)
 
