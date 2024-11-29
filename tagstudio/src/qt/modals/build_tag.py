@@ -41,13 +41,11 @@ class CustomTableItem(QLineEdit):
         self.id = id
 
     def keyPressEvent(self, event):  # noqa: N802
-        # Check if the pressed key is Return (Enter)
         if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
             self.on_return()
         elif event.key() == Qt.Key.Key_Backspace and self.text().strip() == "":
             self.on_backspace()
         else:
-            # Let the base class handle other keys
             super().keyPressEvent(event)
 
 
