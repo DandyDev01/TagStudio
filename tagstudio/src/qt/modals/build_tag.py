@@ -3,11 +3,16 @@
 # Created for TagStudio: https://github.com/CyanVoxel/TagStudio
 
 
+import math
 import sys
 from typing import cast
 
 import structlog
+from PySide6 import QtCore
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import (
+    QAction,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -22,10 +27,11 @@ from PySide6.QtWidgets import (
 )
 from src.core.library import Library, Tag
 from src.core.library.alchemy.enums import TagColor
-from src.core.palette import ColorType, get_tag_color
+from src.core.palette import ColorType, UiColor, get_tag_color, get_ui_color
+from src.qt.flowlayout import FlowLayout
 from src.qt.modals.tag_search import TagSearchPanel
 from src.qt.widgets.panel import PanelModal, PanelWidget
-from src.qt.widgets.tag import TagWidget
+from src.qt.widgets.tag import TagAliasWidget, TagWidget
 
 logger = structlog.get_logger(__name__)
 
@@ -72,6 +78,9 @@ class BuildTagPanel(PanelWidget):
         self.name_title.setText("Name")
         self.name_layout.addWidget(self.name_title)
         self.name_field = QLineEdit()
+        self.name_field.setFixedHeight(24)
+        self.name_field.textChanged.connect(self.on_name_changed)
+        self.name_field.setPlaceholderText("Tag Name (Required)")
         self.name_layout.addWidget(self.name_field)
 
         # Shorthand ------------------------------------------------------------
@@ -138,12 +147,46 @@ class BuildTagPanel(PanelWidget):
         self.subtags_layout.addWidget(self.scroll_area)
 
         self.subtags_add_button = QPushButton()
+        self.subtags_add_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.subtags_add_button.setText("+")
-        tsp = TagSearchPanel(self.lib)
+        self.subtags_add_button.setToolTip("CTRL + P")
+        self.subtags_add_button.setMinimumSize(23, 23)
+        self.subtags_add_button.setMaximumSize(23, 23)
+        self.subtags_add_button.setShortcut(
+            QtCore.QKeyCombination(
+                QtCore.Qt.KeyboardModifier(QtCore.Qt.KeyboardModifier.ControlModifier),
+                QtCore.Qt.Key.Key_P,
+            )
+        )
+        self.subtags_add_button.setStyleSheet(
+            f"QPushButton{{"
+            f"background: #1e1e1e;"
+            f"color: #FFFFFF;"
+            f"font-weight: bold;"
+            f"border-color: #333333;"
+            f"border-radius: 6px;"
+            f"border-style:solid;"
+            f"border-width:{math.ceil(self.devicePixelRatio())}px;"
+            f"padding-bottom: 5px;"
+            f"font-size: 20px;"
+            f"}}"
+            f"QPushButton::hover"
+            f"{{"
+            f"border-color: #CCCCCC;"
+            f"background: #555555;"
+            f"}}"
+        )
+        self.subtag_flow_layout.addWidget(self.subtags_add_button)
+
+        exclude_ids: list[int] = list()
+        if tag is not None:
+            exclude_ids.append(tag.id)
+
+        tsp = TagSearchPanel(self.lib, exclude_ids)
         tsp.tag_chosen.connect(lambda x: self.add_subtag_callback(x))
         self.add_tag_modal = PanelModal(tsp, "Add Parent Tags", "Add Parent Tags")
         self.subtags_add_button.clicked.connect(self.add_tag_modal.show)
-        self.subtags_layout.addWidget(self.subtags_add_button)
+        # self.subtags_layout.addWidget(self.subtags_add_button)
 
         exclude_ids: list[int] = list()
         if tag is not None:
@@ -169,7 +212,8 @@ class BuildTagPanel(PanelWidget):
         self.color_field.setMaxVisibleItems(10)
         self.color_field.setStyleSheet("combobox-popup:0;")
         for color in TagColor:
-            self.color_field.addItem(color.name, userData=color.value)
+            self.color_field.addItem(color.name.replace("_", " ").title(), userData=color.value)
+        # self.color_field.setProperty("appearance", "flat")
         self.color_field.currentIndexChanged.connect(
             lambda c: (
                 self.color_field.setStyleSheet(
@@ -183,6 +227,15 @@ class BuildTagPanel(PanelWidget):
             )
         )
         self.color_layout.addWidget(self.color_field)
+        remove_selected_alias_action = QAction("remove selected alias", self)
+        remove_selected_alias_action.triggered.connect(self.remove_selected_alias)
+        remove_selected_alias_action.setShortcut(
+            QtCore.QKeyCombination(
+                QtCore.Qt.KeyboardModifier(QtCore.Qt.KeyboardModifier.ControlModifier),
+                QtCore.Qt.Key.Key_D,
+            )
+        )
+        self.addAction(remove_selected_alias_action)
 
         # Add Widgets to Layout ================================================
         self.root_layout.addWidget(self.name_widget)
@@ -191,6 +244,7 @@ class BuildTagPanel(PanelWidget):
         self.root_layout.addWidget(self.aliases_table)
         self.root_layout.addWidget(self.alias_add_button)
         self.root_layout.addWidget(self.subtags_widget)
+        self.root_layout.addWidget(self.subtag_flow_widget)
         self.root_layout.addWidget(self.color_widget)
 
         self.subtag_ids: list[int] = list()
@@ -200,6 +254,35 @@ class BuildTagPanel(PanelWidget):
         self.new_item_id = sys.maxsize
 
         self.set_tag(tag or Tag(name="New Tag"))
+        if tag is None:
+            self.name_field.selectAll()
+
+    def keyPressEvent(self, event):  # noqa: N802
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:  # type: ignore
+            focused_widget = QApplication.focusWidget()
+            if isinstance(focused_widget.parent(), TagAliasWidget):
+                self.add_alias_callback()
+
+    def remove_selected_alias(self):
+        count = self.aliases_flow_layout.count()
+        if count <= 0:
+            return
+
+        focused_widget = QApplication.focusWidget()
+
+        if focused_widget is None:
+            return
+
+        if isinstance(focused_widget.parent(), TagAliasWidget):
+            cast(TagAliasWidget, focused_widget.parent()).on_remove.emit()
+
+        count = self.aliases_flow_layout.count()
+        if count > 1:
+            cast(
+                TagAliasWidget, self.aliases_flow_layout.itemAt(count - 2).widget()
+            ).text_field.setFocus()
+        else:
+            self.alias_add_button.setFocus()
 
     def backspace(self):
         focused_widget = QApplication.focusWidget()
